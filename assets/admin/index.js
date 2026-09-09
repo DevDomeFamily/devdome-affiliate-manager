@@ -7662,12 +7662,18 @@ const InfoTooltip = React.memo(({ text, alignment = "center", direction = "top",
     ] })
   ] })
 ] }));
-const SettingRow = React.memo(({ label, tooltip, children, className = "" }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `grid grid-cols-[210px_1fr] gap-6 items-start border-b border-gray-50 pb-5 mb-5 last:border-0 last:pb-0 last:mb-0 animate-in fade-in slide-in-from-top-2 duration-300 ${className}`, children: [
+const SettingRow = React.memo(({ label, tooltip, hint, children, className = "" }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `grid grid-cols-[210px_1fr] gap-6 items-start border-b border-gray-50 pb-5 mb-5 last:border-0 last:pb-0 last:mb-0 animate-in fade-in slide-in-from-top-2 duration-300 ${className}`, children: [
   /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "text-sm font-bold text-gray-600 pt-2.5 flex items-center gap-1.5", children: [
     label,
-    tooltip && /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: tooltip })
+    tooltip && !hint && /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: tooltip })
   ] }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full", children })
+  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full", children: [
+    children,
+    hint && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "mt-1.5 text-xs text-gray-500 flex items-center gap-1.5", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: hint }),
+      tooltip && /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: tooltip })
+    ] })
+  ] })
 ] }));
 const SimpleCheckbox = React.memo(({ name, checked, onChange, label, className = "" }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: `inline-flex items-center cursor-pointer min-h-[40px] ${className}`, children: [
   /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "checkbox", name, checked, onChange, className: "h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0" }),
@@ -9636,11 +9642,11 @@ function App({ suiteMode = false } = {}) {
               }, children: "Connect your DevDome account" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-gray-500", children: "Store routing runs on DevDome servers. Requires a DevDome account." })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: svcUsage && !svcUsage.usage ? "opacity-50 pointer-events-none" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "OneLink Alternative", tooltip: "Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "geoEnabled", checked: formData.geoEnabled, onChange: handleCheckboxChange, label: "Auto-redirect visitors to their local Amazon store" }) }) })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: svcUsage && !svcUsage.usage ? "opacity-50 pointer-events-none" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "OneLink Alternative", hint: "Visitors land on their local Amazon store with your tag for it.", tooltip: "Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "geoEnabled", checked: formData.geoEnabled, onChange: handleCheckboxChange, label: "Auto-redirect visitors to their local Amazon store" }) }) })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-b border-gray-100 pb-3 mb-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Link Options" }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "SEO Attributes", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-6 pt-1", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "SEO Attributes", hint: "nofollow and sponsored are what Amazon expects on affiliate links.", tooltip: "Amazon Associates asks for rel=nofollow sponsored on affiliate links. Open in new tab keeps your page open while the visitor shops.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-6 pt-1", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center text-sm font-semibold text-gray-700 cursor-pointer select-none group", children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "radio", name: "btn1FollowMode", value: "nofollow", checked: formData.btn1FollowMode === "nofollow", onChange: handleChange, className: "mr-2 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" }),
                 " ",
@@ -9673,8 +9679,8 @@ function App({ suiteMode = false } = {}) {
               /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Button Display" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: "Controls the [devdaffi_button] shortcode: a styled button you can place in any post, page, or product. It links to a product (from its ASIN) or a custom URL and is automatically affiliate-tagged." })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Button Text", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(StyledInput, { type: "text", name: "btn1Text", value: formData.btn1Text, onChange: handleChange, placeholder: "Check Price On Amazon" }) }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Button Link", tooltip: "The button will automatically link to the Amazon product page using your affiliate settings.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Button Text", hint: "Shown on every generated Amazon button.", tooltip: "Change it site wide here. A single button can override it in its shortcode.", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(StyledInput, { type: "text", name: "btn1Text", value: formData.btn1Text, onChange: handleChange, placeholder: "Check Price On Amazon" }) }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Button Link", hint: "Generated links carry your tag automatically.", tooltip: "The button will automatically link to the Amazon product page using your affiliate settings.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-4", children: [
               formData.btn1LinkMode === "generated" ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "relative", children: btn1Editing ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: formData.btn1GeneratedDomain, onChange: (e) => setFormData((prev) => ({ ...prev, btn1GeneratedDomain: e.target.value })), className: "flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors shadow-sm text-gray-700", children: amazonDomains.map((d) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: d.value, children: d.label }, d.value)) }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => setBtn1Editing(false), className: "shrink-0 px-3 py-2 bg-indigo-600 text-white rounded-lg text-[12px] font-bold hover:bg-indigo-700 shadow-sm flex items-center gap-1.5", children: [
@@ -9714,7 +9720,7 @@ function App({ suiteMode = false } = {}) {
                 ] })
               ] })
             ] }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Shortcode", tooltip: "Paste this into any post or page to render the button. In generated mode, replace YOUR_ASIN with the product's Amazon ASIN.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Shortcode", hint: "Paste it into any post or page.", tooltip: "Paste this into any post or page to render the button. In generated mode, replace YOUR_ASIN with the product's Amazon ASIN.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "flex-1 px-3 py-2 bg-gray-900 text-emerald-300 rounded-lg text-[13px] font-mono select-all break-all", children: formData.btn1LinkMode === "custom" && !/\{ASIN\}/i.test(formData.btn1Link || "") ? "[devdaffi_button]" : '[devdaffi_button asin="YOUR_ASIN"]' }),
               /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => {
                 if (navigator.clipboard) navigator.clipboard.writeText(formData.btn1LinkMode === "custom" && !/\{ASIN\}/i.test(formData.btn1Link || "") ? "[devdaffi_button]" : '[devdaffi_button asin="YOUR_ASIN"]');
@@ -10068,7 +10074,7 @@ function App({ suiteMode = false } = {}) {
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "mt-8" : "py-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { title: "Link Radar", icon: Activity, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm space-y-12", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-b border-gray-100 pb-4 mb-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Link Scanner" }) }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Status", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Status", hint: "Last scan result. Scan again after adding new Amazon links.", tooltip: "The scanner reads posts, pages and WooCommerce external products for Amazon links. A scan changes nothing, it only builds the list the monitor checks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
                   scanState === "idle" && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: handleScanSite, className: "flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md text-sm font-bold hover:bg-indigo-100 hover:border-indigo-200 transition-colors shadow-sm whitespace-nowrap", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(Activity, { size: 16 }),
                     " Scan Site For Amazon Links"
@@ -10095,8 +10101,8 @@ function App({ suiteMode = false } = {}) {
                     ] })
                   ] })
                 ] }) }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Auto Re-Scan", tooltip: "How often the plugin automatically re-scans your content for Amazon links. Manual scans are always available above.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "scanAuto", checked: formData.scanAuto, onChange: handleCheckboxChange, label: "Automatically re-scan on a schedule" }) }),
-                formData.scanAuto && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Scan every", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Auto Re-Scan", hint: "Keeps the link list current without manual scans.", tooltip: "How often the plugin automatically re-scans your content for Amazon links. Manual scans are always available above.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "scanAuto", checked: formData.scanAuto, onChange: handleCheckboxChange, label: "Automatically re-scan on a schedule" }) }),
+                formData.scanAuto && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Scan every", hint: "7 days suits most sites.", tooltip: "Shorter intervals only help if you publish Amazon links daily. A re-scan reads your content on your own server and uses no link checks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "input",
                     {
@@ -10391,7 +10397,7 @@ function App({ suiteMode = false } = {}) {
                   }, children: "Connect your DevDome account" }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-gray-500", children: "Live checks run on DevDome servers. Requires a DevDome account." })
                 ] }),
-                svcUsage && svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: `${svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1)} Plan`, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 pt-2.5", children: [
+                svcUsage && svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: `${svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1)} Plan`, hint: "Link checks used this month on your DevDome account.", tooltip: "The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 pt-2.5", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-sm font-bold text-gray-900", children: [
                     svcUsage.usage.used.toLocaleString(),
                     " / ",
@@ -10400,14 +10406,14 @@ function App({ suiteMode = false } = {}) {
                   svcUsage.state === "quota" || svcUsage.usage.remaining === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "https://devdome.com/pricing", target: "_blank", rel: "noopener noreferrer", className: "text-sm font-bold text-red-600 hover:text-red-800", children: "Limit reached. Upgrade for more" }) : svcUsage.usage.plan === "free" && /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "https://devdome.com/pricing", target: "_blank", rel: "noopener noreferrer", className: "text-xs font-bold text-indigo-600 hover:text-indigo-800", children: "Need more? See plans" })
                 ] }) }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: svcUsage && !svcUsage.usage ? "opacity-50 pointer-events-none" : "", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Out of Stock Redirect", tooltip: "When a product is out of stock, send the click to a fallback so the visit still has a chance to convert.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Out of Stock Redirect", hint: "Send clicks on out of stock products somewhere useful.", tooltip: "When a product is out of stock, send the click to a fallback so the visit still has a chance to convert.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "monitorOosToSearch", checked: formData.monitorOosToSearch, onChange: handleCheckboxChange, label: "Enable" }),
                     formData.monitorOosToSearch && /* @__PURE__ */ jsxRuntimeExports.jsx(RadioGroup, { name: "monitorOosMode", value: formData.monitorOosMode, onChange: handleRadioChange, options: [
                       { label: "Best replacement product", value: "replacement", hint: "Send the click to the closest live product (falls back to the search page if none found)." },
                       { label: "Search page", value: "search", hint: "Send the click to Amazon search results for the product." }
                     ] })
                   ] }) }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "404 ASIN Redirect", tooltip: "When a product page is gone (404), send the click to a fallback so the visit still has a chance to convert.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "404 ASIN Redirect", hint: "Send clicks on removed products somewhere useful.", tooltip: "When a product page is gone (404), send the click to a fallback so the visit still has a chance to convert.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "monitorDeadToSearch", checked: formData.monitorDeadToSearch, onChange: handleCheckboxChange, label: "Enable" }),
                     formData.monitorDeadToSearch && /* @__PURE__ */ jsxRuntimeExports.jsx(RadioGroup, { name: "monitorDeadMode", value: formData.monitorDeadMode, onChange: handleRadioChange, options: [
                       { label: "Best replacement product", value: "replacement", hint: "Send the click to the closest live product (falls back to the search page if none found)." },
@@ -10423,8 +10429,8 @@ function App({ suiteMode = false } = {}) {
                 title: "Click Protection",
                 icon: Shield,
                 children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Bot Protection", tooltip: "Basic protection: blocks known bots (Cloudflare verified-bot list) from triggering your affiliate links and inflating your click stats. For advanced, site-wide protection (datacenter & flagged-IP traffic, scanners and fake visits) install the DevDome Bot Protection plugin.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "blockBots", checked: formData.blockBots, onChange: handleCheckboxChange, label: "Block Bot Clicks" }) }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Bots Blocked", tooltip: "Total bot clicks stopped before they reached your affiliate links. Resets only when you clear it.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Bot Protection", hint: "Keeps bot clicks out of your affiliate links and stats.", tooltip: "Basic protection: blocks known bots (Cloudflare verified-bot list) from triggering your affiliate links and inflating your click stats. For advanced, site-wide protection (datacenter & flagged-IP traffic, scanners and fake visits) install the DevDome Bot Protection plugin.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "blockBots", checked: formData.blockBots, onChange: handleCheckboxChange, label: "Block Bot Clicks" }) }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Bots Blocked", hint: "Bot clicks stopped so far.", tooltip: "Total bot clicks stopped before they reached your affiliate links. Resets only when you clear it.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 pt-1", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-200 font-bold text-sm", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsx(Shield, { size: 15, className: "stroke-[2.5]" }),
                       " ",
@@ -10436,7 +10442,7 @@ function App({ suiteMode = false } = {}) {
                       " Reset Count"
                     ] })
                   ] }) }),
-                  formData.blockBots && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Redirect Method", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  formData.blockBots && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Redirect Method", hint: "How protected clicks reach Amazon.", tooltip: "JavaScript 302 keeps the referrer and works with caching plugins. Server side redirects are faster but some caches store them. Change it only if clicks are not being tracked.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                     RadioGroup,
                     {
                       name: "redirectMethod",
@@ -10453,10 +10459,10 @@ function App({ suiteMode = false } = {}) {
               }
             ) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "mt-8" : "py-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { title: "Mobile App", icon: Smartphone, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Enable Opener", tooltip: "Automatically launches the Amazon app on mobile devices when possible to bypass browser login walls and increase sales", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "enabled", checked: formData.enabled, onChange: handleCheckboxChange, label: "Open Amazon links in the Amazon app (mobile)" }) }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Enable Opener", hint: "Opens the Amazon app on phones when possible.", tooltip: "Automatically launches the Amazon app on mobile devices when possible to bypass browser login walls and increase sales", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "enabled", checked: formData.enabled, onChange: handleCheckboxChange, label: "Open Amazon links in the Amazon app (mobile)" }) }) }),
               formData.enabled && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "iOS (iPhone/iPad)", tooltip: "If someone opens your site inside an in-app browser on iPhone (Reddit/Instagram/TikTok and similar), those browsers can block Amazon links. Turn this on to show a big Open in Safari button only in that situation. In normal Safari, links open normally with no extra step.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "iosOpenInSafari", checked: formData.iosOpenInSafari, onChange: handleCheckboxChange, label: "On iPhone/iPad: show an “Open in Safari” button inside in-app browsers" }) }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Android", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "iOS (iPhone/iPad)", hint: "Shows an Open in Safari button inside in-app browsers.", tooltip: "If someone opens your site inside an in-app browser on iPhone (Reddit/Instagram/TikTok and similar), those browsers can block Amazon links. Turn this on to show a big Open in Safari button only in that situation. In normal Safari, links open normally with no extra step.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "iosOpenInSafari", checked: formData.iosOpenInSafari, onChange: handleCheckboxChange, label: "On iPhone/iPad: show an “Open in Safari” button inside in-app browsers" }) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Android", hint: "How Android visitors reach Amazon.", tooltip: "Browser keeps the click in the visitor's browser. App tries the Amazon app first and falls back to the browser.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                   RadioGroup,
                   {
                     name: "androidMode",

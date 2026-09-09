@@ -211,13 +211,21 @@ const InfoTooltip = React.memo(({ text, alignment = 'center', direction = 'top',
   </div>
 ));
 
-const SettingRow = React.memo(({ label, tooltip, children, className = "" }) => (
+const SettingRow = React.memo(({ label, tooltip, hint, children, className = "" }) => (
   <div className={`grid grid-cols-[210px_1fr] gap-6 items-start border-b border-gray-50 pb-5 mb-5 last:border-0 last:pb-0 last:mb-0 animate-in fade-in slide-in-from-top-2 duration-300 ${className}`}>
     <label className="text-sm font-bold text-gray-600 pt-2.5 flex items-center gap-1.5">
       {label}
-      {tooltip && <InfoTooltip text={tooltip} />}
+      {tooltip && !hint && <InfoTooltip text={tooltip} />}
     </label>
-    <div className="w-full">{children}</div>
+    <div className="w-full">
+      {children}
+      {hint && (
+        <p className="mt-1.5 text-xs text-gray-500 flex items-center gap-1.5">
+          <span>{hint}</span>
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </p>
+      )}
+    </div>
   </div>
 ));
 
@@ -2164,7 +2172,7 @@ export default function App({ suiteMode = false } = {}) {
                                 </div>
                             )}
                             <div className={svcUsage && !svcUsage.usage ? 'opacity-50 pointer-events-none' : ''}>
-                            <SettingRow label="OneLink Alternative" tooltip="Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.">
+                            <SettingRow label="OneLink Alternative" hint="Visitors land on their local Amazon store with your tag for it." tooltip="Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.">
                                 <SimpleCheckbox name="geoEnabled" checked={formData.geoEnabled} onChange={handleCheckboxChange} label="Auto-redirect visitors to their local Amazon store" />
                             </SettingRow>
                             </div>
@@ -2174,7 +2182,7 @@ export default function App({ suiteMode = false } = {}) {
                             <div className="border-b border-gray-100 pb-3 mb-6">
                                 <h3 className="text-base font-bold text-gray-800">Link Options</h3>
                             </div>
-                            <SettingRow label="SEO Attributes">
+                            <SettingRow label="SEO Attributes" hint="nofollow and sponsored are what Amazon expects on affiliate links." tooltip="Amazon Associates asks for rel=nofollow sponsored on affiliate links. Open in new tab keeps your page open while the visitor shops.">
                                <div className="flex flex-wrap items-center gap-6 pt-1">
                                   <label className="flex items-center text-sm font-semibold text-gray-700 cursor-pointer select-none group">
                                     <input type="radio" name="btn1FollowMode" value="nofollow" checked={formData.btn1FollowMode === 'nofollow'} onChange={handleChange} className="mr-2 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" /> <span className="group-hover:text-indigo-600 transition-colors">No Follow</span>
@@ -2202,12 +2210,12 @@ export default function App({ suiteMode = false } = {}) {
                                 <h3 className="text-base font-bold text-gray-800">Button Display</h3>
                                 <InfoTooltip text="Controls the [devdaffi_button] shortcode: a styled button you can place in any post, page, or product. It links to a product (from its ASIN) or a custom URL and is automatically affiliate-tagged." />
                             </div>
-                            <SettingRow label="Button Text">
+                            <SettingRow label="Button Text" hint="Shown on every generated Amazon button." tooltip="Change it site wide here. A single button can override it in its shortcode.">
                                <div className="flex flex-col gap-2">
                                  <StyledInput type="text" name="btn1Text" value={formData.btn1Text} onChange={handleChange} placeholder="Check Price On Amazon" />
                                </div>
                             </SettingRow>
-                            <SettingRow label="Button Link" tooltip="The button will automatically link to the Amazon product page using your affiliate settings.">
+                            <SettingRow label="Button Link" hint="Generated links carry your tag automatically." tooltip="The button will automatically link to the Amazon product page using your affiliate settings.">
                                 <div className="flex flex-col gap-4">
                                    {formData.btn1LinkMode === 'generated' ? (
                                        <div className="relative">
@@ -2236,7 +2244,7 @@ export default function App({ suiteMode = false } = {}) {
                                    <div className="flex gap-6 items-center flex-wrap"><label className="flex items-center gap-2 cursor-pointer group select-none"><input type="radio" name="btn1LinkMode" value="generated" checked={formData.btn1LinkMode === 'generated'} onChange={handleChange} className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 cursor-pointer" /><span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-600 transition-colors">Use Generated Link</span></label>{formData.btn1LinkMode === 'generated' && (<label className="flex items-center gap-2 cursor-pointer group select-none"><input type="checkbox" name="btn1SkipTag" checked={formData.btn1SkipTag} onChange={handleChange} className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer" /><span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-600 transition-colors">Don't add tag</span><InfoTooltip text="Build the Amazon link from the ASIN but leave off your ?tag= affiliate ID." /></label>)}<label className="flex items-center gap-2 cursor-pointer group select-none"><input type="radio" name="btn1LinkMode" value="custom" checked={formData.btn1LinkMode === 'custom'} onChange={handleChange} className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 cursor-pointer" /><span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-600 transition-colors">Use Custom Link</span><InfoTooltip text="Custom links to non-Amazon sites won't receive your affiliate tag. Use {ASIN} in the URL and it'll be replaced with the product's ASIN at render." /></label></div>
                                 </div>
                             </SettingRow>
-                            <SettingRow label="Shortcode" tooltip="Paste this into any post or page to render the button. In generated mode, replace YOUR_ASIN with the product's Amazon ASIN.">
+                            <SettingRow label="Shortcode" hint="Paste it into any post or page." tooltip="Paste this into any post or page to render the button. In generated mode, replace YOUR_ASIN with the product's Amazon ASIN.">
                                <div className="flex items-center gap-2">
                                   <code className="flex-1 px-3 py-2 bg-gray-900 text-emerald-300 rounded-lg text-[13px] font-mono select-all break-all">{(formData.btn1LinkMode === 'custom' && !/\{ASIN\}/i.test(formData.btn1Link || '')) ? '[devdaffi_button]' : '[devdaffi_button asin="YOUR_ASIN"]'}</code>
                                   <button type="button" onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText((formData.btn1LinkMode === 'custom' && !/\{ASIN\}/i.test(formData.btn1Link || '')) ? '[devdaffi_button]' : '[devdaffi_button asin="YOUR_ASIN"]'); }} className="shrink-0 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[12px] font-bold text-gray-700 hover:bg-gray-50 shadow-sm flex items-center gap-1.5"><Copy size={14} /> Copy</button>
@@ -2660,7 +2668,7 @@ export default function App({ suiteMode = false } = {}) {
                              <h3 className="text-base font-bold text-gray-800">Link Scanner</h3>
                          </div>
 
-                         <SettingRow label="Status">
+                         <SettingRow label="Status" hint="Last scan result. Scan again after adding new Amazon links." tooltip="The scanner reads posts, pages and WooCommerce external products for Amazon links. A scan changes nothing, it only builds the list the monitor checks.">
                              <div className="space-y-4">
                                  {scanState === 'idle' && (
                                      <button type="button" onClick={handleScanSite} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md text-sm font-bold hover:bg-indigo-100 hover:border-indigo-200 transition-colors shadow-sm whitespace-nowrap">
@@ -2689,12 +2697,12 @@ export default function App({ suiteMode = false } = {}) {
                              </div>
                          </SettingRow>
 
-                         <SettingRow label="Auto Re-Scan" tooltip="How often the plugin automatically re-scans your content for Amazon links. Manual scans are always available above.">
+                         <SettingRow label="Auto Re-Scan" hint="Keeps the link list current without manual scans." tooltip="How often the plugin automatically re-scans your content for Amazon links. Manual scans are always available above.">
                              <SimpleCheckbox name="scanAuto" checked={formData.scanAuto} onChange={handleCheckboxChange} label="Automatically re-scan on a schedule" />
                          </SettingRow>
 
                          {formData.scanAuto && (
-                           <SettingRow label="Scan every">
+                           <SettingRow label="Scan every" hint="7 days suits most sites." tooltip="Shorter intervals only help if you publish Amazon links daily. A re-scan reads your content on your own server and uses no link checks.">
                              <div className="flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200">
                                <input
                                   type="number" name="scanFrequency" value={formData.scanFrequency} onChange={handleChange}
@@ -2931,7 +2939,7 @@ export default function App({ suiteMode = false } = {}) {
                             </div>
                          )}
                          {svcUsage && svcUsage.usage && (
-                            <SettingRow label={`${svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1)} Plan`}>
+                            <SettingRow label={`${svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1)} Plan`} hint="Link checks used this month on your DevDome account." tooltip="The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.">
                                <div className="flex flex-wrap items-center gap-3 pt-2.5">
                                   <span className="text-sm font-bold text-gray-900">{svcUsage.usage.used.toLocaleString()} / {svcUsage.usage.limit.toLocaleString()}</span>
                                   {(svcUsage.state === 'quota' || svcUsage.usage.remaining === 0) ? (
@@ -2944,7 +2952,7 @@ export default function App({ suiteMode = false } = {}) {
                          )}
 
                          <div className={svcUsage && !svcUsage.usage ? 'opacity-50 pointer-events-none' : ''}>
-                         <SettingRow label="Out of Stock Redirect" tooltip="When a product is out of stock, send the click to a fallback so the visit still has a chance to convert.">
+                         <SettingRow label="Out of Stock Redirect" hint="Send clicks on out of stock products somewhere useful." tooltip="When a product is out of stock, send the click to a fallback so the visit still has a chance to convert.">
                             <div className="flex flex-col gap-3">
                                <SimpleCheckbox name="monitorOosToSearch" checked={formData.monitorOosToSearch} onChange={handleCheckboxChange} label="Enable" />
                                {formData.monitorOosToSearch && (
@@ -2956,7 +2964,7 @@ export default function App({ suiteMode = false } = {}) {
                             </div>
                          </SettingRow>
 
-                         <SettingRow label="404 ASIN Redirect" tooltip="When a product page is gone (404), send the click to a fallback so the visit still has a chance to convert.">
+                         <SettingRow label="404 ASIN Redirect" hint="Send clicks on removed products somewhere useful." tooltip="When a product page is gone (404), send the click to a fallback so the visit still has a chance to convert.">
                             <div className="flex flex-col gap-3">
                                <SimpleCheckbox name="monitorDeadToSearch" checked={formData.monitorDeadToSearch} onChange={handleCheckboxChange} label="Enable" />
                                {formData.monitorDeadToSearch && (
@@ -2980,11 +2988,11 @@ export default function App({ suiteMode = false } = {}) {
                   icon={Shield}
                >
                   <div className="bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
-                    <SettingRow label="Bot Protection" tooltip="Basic protection: blocks known bots (Cloudflare verified-bot list) from triggering your affiliate links and inflating your click stats. For advanced, site-wide protection (datacenter & flagged-IP traffic, scanners and fake visits) install the DevDome Bot Protection plugin.">
+                    <SettingRow label="Bot Protection" hint="Keeps bot clicks out of your affiliate links and stats." tooltip="Basic protection: blocks known bots (Cloudflare verified-bot list) from triggering your affiliate links and inflating your click stats. For advanced, site-wide protection (datacenter & flagged-IP traffic, scanners and fake visits) install the DevDome Bot Protection plugin.">
                         <SimpleCheckbox name="blockBots" checked={formData.blockBots} onChange={handleCheckboxChange} label="Block Bot Clicks" />
                     </SettingRow>
 
-                    <SettingRow label="Bots Blocked" tooltip="Total bot clicks stopped before they reached your affiliate links. Resets only when you clear it.">
+                    <SettingRow label="Bots Blocked" hint="Bot clicks stopped so far." tooltip="Total bot clicks stopped before they reached your affiliate links. Resets only when you clear it.">
                         <div className="flex items-center gap-3 pt-1">
                           <span className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-200 font-bold text-sm">
                             <Shield size={15} className="stroke-[2.5]" /> {botsBlocked.toLocaleString()} blocked
@@ -2996,7 +3004,7 @@ export default function App({ suiteMode = false } = {}) {
                     </SettingRow>
 
                     {formData.blockBots && (
-                      <SettingRow label="Redirect Method">
+                      <SettingRow label="Redirect Method" hint="How protected clicks reach Amazon." tooltip="JavaScript 302 keeps the referrer and works with caching plugins. Server side redirects are faster but some caches store them. Change it only if clicks are not being tracked.">
                           <RadioGroup
                             name="redirectMethod" value={formData.redirectMethod} onChange={handleRadioChange}
                             options={[
@@ -3017,7 +3025,7 @@ export default function App({ suiteMode = false } = {}) {
             <div className={suiteMode ? 'mt-8' : 'py-6'}>
                <Section title="Mobile App" icon={Smartphone}>
                   <div className="bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm">
-                     <SettingRow label="Enable Opener" tooltip="Automatically launches the Amazon app on mobile devices when possible to bypass browser login walls and increase sales">
+                     <SettingRow label="Enable Opener" hint="Opens the Amazon app on phones when possible." tooltip="Automatically launches the Amazon app on mobile devices when possible to bypass browser login walls and increase sales">
                         <div className="flex flex-col gap-2">
                            <SimpleCheckbox name="enabled" checked={formData.enabled} onChange={handleCheckboxChange} label="Open Amazon links in the Amazon app (mobile)" />
                         </div>
@@ -3025,11 +3033,11 @@ export default function App({ suiteMode = false } = {}) {
 
                      {formData.enabled && (
                        <>
-                         <SettingRow label="iOS (iPhone/iPad)" tooltip="If someone opens your site inside an in-app browser on iPhone (Reddit/Instagram/TikTok and similar), those browsers can block Amazon links. Turn this on to show a big Open in Safari button only in that situation. In normal Safari, links open normally with no extra step.">
+                         <SettingRow label="iOS (iPhone/iPad)" hint="Shows an Open in Safari button inside in-app browsers." tooltip="If someone opens your site inside an in-app browser on iPhone (Reddit/Instagram/TikTok and similar), those browsers can block Amazon links. Turn this on to show a big Open in Safari button only in that situation. In normal Safari, links open normally with no extra step.">
                             <SimpleCheckbox name="iosOpenInSafari" checked={formData.iosOpenInSafari} onChange={handleCheckboxChange} label="On iPhone/iPad: show an “Open in Safari” button inside in-app browsers" />
                          </SettingRow>
 
-                         <SettingRow label="Android">
+                         <SettingRow label="Android" hint="How Android visitors reach Amazon." tooltip="Browser keeps the click in the visitor's browser. App tries the Amazon app first and falls back to the browser.">
                             <RadioGroup
                               name="androidMode" value={formData.androidMode} onChange={handleRadioChange}
                               options={[

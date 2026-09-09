@@ -4,7 +4,7 @@ Tags: affiliate, amazon, affiliate links, woocommerce, redirect
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -199,7 +199,19 @@ It only redirects to stores you've added a tag for. Visitors from other countrie
 = What happens when a product is discontinued? =
 The monitor flags it, and (if enabled) clicks are redirected to a live replacement product or the Amazon search page instead of a dead page.
 
+== Screenshots ==
+
+1. DevDome Affiliate Manager link setup: Amazon Associates tags per marketplace (US, UK, Germany, Canada) applied sitewide or per post, with click counts and local store redirect.
+2. Keyword auto-linker: keywords in WordPress content become tagged Amazon affiliate links automatically, with per-keyword limits.
+3. Link Radar scanner: every Amazon affiliate link in posts and pages found automatically, with scheduled re-scans.
+4. Stock and 404 monitor: live, out-of-stock and dead Amazon ASINs, with optional redirects for out-of-stock and 404 products.
+5. Click protection: bot clicks on affiliate links blocked and counted.
+
 == Changelog ==
+
+= 1.0.6 =
+* Settings: every option now shows a one line hint under the control, with the info icon holding the full explanation, the same layout as DevDome Malware Scanner.
+* DevDome Dashboard: installing another DevDome plugin from the dashboard no longer activates it, you activate it yourself from its card. Output escaping tightened.
 
 = 1.0.5 =
 * DevDome Dashboard polish: Activate stays on the dashboard, notices dismiss on their own, a Fix button on every issue, clearer counters and connected badge.
