@@ -4,7 +4,7 @@ Tags: affiliate, amazon, affiliate links, woocommerce, redirect
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -208,6 +208,9 @@ The monitor flags it, and (if enabled) clicks are redirected to a live replaceme
 5. Click protection: bot clicks on affiliate links blocked and counted.
 
 == Changelog ==
+
+= 1.0.7 =
+* Connect fix (shared DevDome core 1.6.6): the connect claim now waits up to 30 seconds and keeps the handshake for 20 minutes so a refresh retries it, the DevDome hub shows why a connect failed with a Try again link, and the verify file is served through a query form for hosts that answer /.well-known/ before WordPress.
 
 = 1.0.6 =
 * Settings: every option now shows a one line hint under the control, with the info icon holding the full explanation, the same layout as DevDome Malware Scanner.
