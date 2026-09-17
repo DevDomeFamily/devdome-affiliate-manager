@@ -998,6 +998,9 @@ video {
 .max-w-full {
   max-width: 100%;
 }
+.max-w-md {
+  max-width: 28rem;
+}
 .max-w-xs {
   max-width: 20rem;
 }
@@ -1829,6 +1832,9 @@ video {
 }
 .text-\[13px\] {
   font-size: 13px;
+}
+.text-\[14px\] {
+  font-size: 14px;
 }
 .text-\[9px\] {
   font-size: 9px;

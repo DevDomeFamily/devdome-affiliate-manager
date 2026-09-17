@@ -8,6 +8,10 @@ import {
   GripVertical, RotateCcw, Link as LinkIcon, ArrowDownUp, Percent
 } from 'lucide-react';
 
+// A REST route with a query string: on plain permalinks cfg.rest already ends in ?rest_route=/devdaffi/v1/, so the query
+// joins with "&" (a second "?" made WordPress answer rest_no_route 404; live click-through on test2, 2026-09-17).
+const restQuery = (base, route, query) => base + route + (base.indexOf('?') === -1 ? '?' : '&') + query;
+
 // --- Constants & Shared Helpers ---
 const TYPE_ORDER = ['Page', 'Post Category', 'Post', 'Product Category', 'Product'];
 
@@ -546,7 +550,7 @@ const ActionGroup = React.memo(({ item, isSelected, isCurrentInherited, isUsedEl
   return (
        <div className="flex items-center gap-1.5 h-full" onClick={e => e.stopPropagation()}>
           {currentSelectedId !== currentRuleId && (
-              <button onClick={() => { onTransfer(item.value, currentSelectedId, currentRuleId); setIsOpen(false); }} className="text-[10px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1.5 rounded shadow-sm hover:bg-indigo-100 hover:text-indigo-800 transition-colors flex items-center gap-1.5" title={`Move instantly to ${getRuleTooltip(currentRuleId)}`}>
+              <button type="button" onClick={() => { onTransfer(item.value, currentSelectedId, currentRuleId); setIsOpen(false); }} className="text-[10px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1.5 rounded shadow-sm hover:bg-indigo-100 hover:text-indigo-800 transition-colors flex items-center gap-1.5" title={`Move instantly to ${getRuleTooltip(currentRuleId)}`}>
                   <ArrowRightLeft size={10} strokeWidth={3} /> Tag #{currentRuleIndex}
               </button>
           )}
@@ -560,7 +564,7 @@ const ActionGroup = React.memo(({ item, isSelected, isCurrentInherited, isUsedEl
                       <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1 border-b border-gray-100 pb-1.5 sticky left-0">Move to Tag...</div>
                       <div style={{ display: 'grid', gridTemplateRows: `repeat(${Math.min(10, allRules.length)}, minmax(0, 1fr))`, gridAutoFlow: 'column', gap: '2px 6px' }}>
                           {allRules.map(r => (
-                              <button key={r.id} onClick={() => { if (r.id !== currentSelectedId) onTransfer(item.value, currentSelectedId, r.id); setIsOpen(false); }} title={formatTagLabel(r.nickname, r.domain, r.affiliateId, r.index)} className={`text-left text-[10px] font-bold px-2 py-1 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${r.id === currentSelectedId ? 'bg-indigo-50 text-indigo-700 cursor-default ring-1 ring-indigo-200 inset-ring' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+                              <button type="button" key={r.id} onClick={() => { if (r.id !== currentSelectedId) onTransfer(item.value, currentSelectedId, r.id); setIsOpen(false); }} title={formatTagLabel(r.nickname, r.domain, r.affiliateId, r.index)} className={`text-left text-[10px] font-bold px-2 py-1 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${r.id === currentSelectedId ? 'bg-indigo-50 text-indigo-700 cursor-default ring-1 ring-indigo-200 inset-ring' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
                                   {r.id === currentSelectedId ? <Check size={12} strokeWidth={3} /> : <TagIcon size={12} className="opacity-40" />} Tag #{r.index}
                               </button>
                           ))}
@@ -568,7 +572,7 @@ const ActionGroup = React.memo(({ item, isSelected, isCurrentInherited, isUsedEl
                   </div>
               )}
               {!fallsBackToSitewide && (
-                  <button onClick={handleRemoveAssignment} className="px-2 border-l border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center focus:outline-none h-full" title="Remove assignment"><X size={16} strokeWidth={2.5} /></button>
+                  <button type="button" onClick={handleRemoveAssignment} className="px-2 border-l border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center focus:outline-none h-full" title="Remove assignment"><X size={16} strokeWidth={2.5} /></button>
               )}
           </div>
       </div>
@@ -613,7 +617,7 @@ const AutoLinkTagDropdown = React.memo(({ value, onChange, allRules }) => {
                     <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1 border-b border-gray-100 pb-1.5 sticky left-0">Select Tag</div>
                     <div className="flex flex-col gap-1 max-h-[200px] overflow-y-auto custom-scrollbar">
                         {allRules.map(r => (
-                            <button key={r.id} onClick={() => { onChange(`tag-${r.id}`); setIsOpen(false); }} title={formatTagLabel(r.nickname, r.domain, r.affiliateId, r.index)} className={`text-left text-[11px] font-bold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${r.id === currentRule.id ? 'bg-indigo-50 text-indigo-700 cursor-default ring-1 ring-indigo-200 inset-ring' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+                            <button type="button" key={r.id} onClick={() => { onChange(`tag-${r.id}`); setIsOpen(false); }} title={formatTagLabel(r.nickname, r.domain, r.affiliateId, r.index)} className={`text-left text-[11px] font-bold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${r.id === currentRule.id ? 'bg-indigo-50 text-indigo-700 cursor-default ring-1 ring-indigo-200 inset-ring' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
                                 {r.id === currentRule.id ? <Check size={14} strokeWidth={3} /> : <TagIcon size={14} className="opacity-40" />} Tag #{r.index} {r.nickname ? `(${r.nickname})` : ''}
                             </button>
                         ))}
@@ -670,15 +674,15 @@ const SearchableDropdown = React.memo(({ options, onSelect, onBulkSelect, onBulk
       const ctrl = new AbortController();
       setSrv(s => ({ ...s, loading: true }));
       const h = setTimeout(() => {
-          const url = `${cfg.rest}content?q=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(activeFilter)}&page=${currentPage}`;
+          const url = restQuery(cfg.rest, 'content', `q=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(activeFilter)}&page=${currentPage}`);
           fetch(url, { headers: { 'X-WP-Nonce': cfg.nonce }, signal: ctrl.signal })
-            .then(r => r.json())
+            .then(r => r.ok ? r.json() : Promise.reject(new Error('content search failed'))) // round 5: an error answer is not an empty list
             .then(d => {
-                if (!d || !Array.isArray(d.items)) return;
+                if (!d || !Array.isArray(d.items)) { setSrv(s => ({ ...s, loading: false })); return; } // round 2: never a stuck spinner
                 cacheItems(d.items);
                 setSrv({ items: d.items, counts: d.counts || {}, total: d.total || d.items.length, loading: false });
             })
-            .catch(() => {});
+            .catch(() => setSrv(s => ({ ...s, loading: false })));
       }, 250);
       return () => { clearTimeout(h); ctrl.abort(); };
   }, [isWP, searchTerm, activeFilter, currentPage]);
@@ -818,7 +822,7 @@ const SearchableDropdown = React.memo(({ options, onSelect, onBulkSelect, onBulk
           <div className="flex items-center flex-nowrap gap-2 p-2 bg-slate-50 border-b border-gray-200 overflow-x-auto relative z-20 shadow-sm custom-scrollbar">
               <span className="text-[11px] font-bold text-gray-600 pl-1 pr-1.5 whitespace-nowrap flex items-center gap-1">
                  Filters:
-                 <InfoTooltip text={`Showing ${options.length} of 500 total pages that include Amazon links.`} alignment="left" direction="bottom" className="z-[80]" />
+                 <InfoTooltip text={`Showing ${options.length} page${options.length === 1 ? '' : 's'} that include Amazon links.`} alignment="left" direction="bottom" className="z-[80]" />
               </span>
               <button type="button" onClick={(e) => { e.stopPropagation(); setActiveFilter("All"); }} className={`px-2.5 py-1 text-[11px] font-bold border rounded transition-colors shadow-sm whitespace-nowrap flex-shrink-0 ${activeFilter === "All" ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>All ({tabCounts["All"]})</button>
               <button type="button" onClick={(e) => { e.stopPropagation(); setActiveFilter("Page"); }} className={`px-2.5 py-1 text-[11px] font-bold border rounded transition-colors shadow-sm whitespace-nowrap flex-shrink-0 ${activeFilter === "Page" ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>Pages ({tabCounts["Page"]})</button>
@@ -1011,12 +1015,15 @@ export default function App({ suiteMode = false } = {}) {
   // {connected, connect_url, usage:{plan,limit,used,remaining,geo}, state:'ok'|'connect'|'quota'|'unavailable'}
   const [svcUsage, setSvcUsage] = useState(null);
   const [monitorProblems, setMonitorProblems] = useState([]);
+  const [loadError, setLoadError] = useState(false); // round 5: the settings request failed
+  const [monitorHasMore, setMonitorHasMore] = useState(false); // round 3: the lists hold the first 100 flagged products
+  const [replaceUnfinished, setReplaceUnfinished] = useState([]); // round 4: posts an interrupted replacement left unverified
   const [monitorState, setMonitorState] = useState('idle'); // idle | checking
   const [monitorRefresh, setMonitorRefresh] = useState(null); // 'oos' | 'dead' | null — which status is re-checking
   const [expandedProblems, setExpandedProblems] = useState({}); // asin → bool, expandable problem rows
   const [listOpen, setListOpen] = useState(() => {
     // Restore Live / OOS / 404 open state from localStorage so refresh preserves the user's last layout.
-    try { const s = localStorage.getItem('devdaffi_link_health_open'); if (s) return JSON.parse(s); } catch (e) {}
+    try { const s = localStorage.getItem('devdaffi_link_health_open'); if (s) { const v = JSON.parse(s); if (v && typeof v === 'object' && !Array.isArray(v)) return v; } } catch (e) {} // round 6: a corrupt value never blanks the screen
     return { dead: false, oos: false, ok: false };
   });
   const [liveState, setLiveState] = useState({ items: [], loading: false, offset: 0, hasMore: false, loaded: false }); // Live ASINs lazy-loaded via /monitor/by-status
@@ -1049,6 +1056,7 @@ export default function App({ suiteMode = false } = {}) {
   // --- Backend wiring (Link Setup): load settings + real site content on mount. ---
   // Other sections (auto-linker/scanner/etc.) have no backend yet.
   const savedDefaultTag = useRef('');
+  const savedAffiliateIds = useRef([]); // affiliate ids as loaded: a changed id loses its click rows on save (round 6)
   const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | error
   const [loaded, setLoaded] = useState(false); // settings fetched? (block Save until then)
   const [, setContentReady] = useState(0); // bump to re-render after targetOptions loads
@@ -1060,10 +1068,12 @@ export default function App({ suiteMode = false } = {}) {
     targetOptions = []; // WP mode: empty label cache (the picker searches the server)
 
     fetch(cfg.rest + 'settings', { headers })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('settings load failed'); return r.json(); }) // round 3: a REST error JSON must never become empty settings + an enabled Save
       .then(data => {
-        if (!data || typeof data !== 'object') return;
+        if (!data || typeof data !== 'object' || !Array.isArray(data.tags)) throw new Error('settings shape');
         savedDefaultTag.current = data.default_tag || '';
+        savedAffiliateIds.current = (Array.isArray(data.tags) ? data.tags : []).map(t => String(t.affiliate_id || '')).filter(Boolean);
+        setReplaceUnfinished(Array.isArray(data.replace_unfinished) ? data.replace_unfinished : []);
         const lo = data.link_options || {};
         const tags = Array.isArray(data.tags) ? data.tags : [];
         const exc = backendToExclusions(data.exclusions || {});
@@ -1158,27 +1168,30 @@ export default function App({ suiteMode = false } = {}) {
           fetch(`${cfg.rest}content/resolve?ids=${encodeURIComponent(selected.join(','))}`, { headers })
             .then(r => r.json())
             .then(d => { if (d && Array.isArray(d.items)) { cacheItems(d.items); setContentReady(c => c + 1); } })
-            .catch(() => {});
+            .catch(() => {}); // labels are cosmetic; the settings are loaded
         }
       })
-      .catch(() => {});
+      .catch(() => { setLoadError(true); }); // rounds 2-5: the spinner turns into an error with a retry, never a silent hang
 
     // Link Radar monitor: load current dead/OOS issues so the section shows them on open.
     fetch(cfg.rest + 'monitor', { headers })
-      .then(r => r.json())
-      .then(d => { if (d && d.summary) { setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); } })
-      .catch(() => {});
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (ok && d && d.summary) { setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); setMonitorHasMore(!!d.has_more); } else { window.alert((d && d.message) || 'The Link Radar counts could not be read.'); } }) // round 5: a failed read is said, not "never checked"
+      .catch(() => window.alert('The Link Radar counts could not be read.'));
 
     // Account meter: connection state + this month's Link Radar quota (proxied server-side).
     fetch(cfg.rest + 'usage', { headers })
-      .then(r => r.json())
-      .then(d => { if (d && d.state) setSvcUsage(d); })
-      .catch(() => {});
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (ok && d && d.state) setSvcUsage(d); else setSvcUsage({ connected: false, usage: null, state: 'unavailable' }); }) // round 5
+      .catch(() => setSvcUsage({ connected: false, usage: null, state: 'unavailable' }));
   }, []);
 
   const handleSave = useCallback(() => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg || !loaded) return; // never POST the initial mock data over real settings
+    const keptIds = formData.btn1AffiliateRules.map(r => String(r.affiliateId || '').trim()).filter(Boolean);
+    const lostIds = savedAffiliateIds.current.filter(id => !keptIds.includes(id) && id !== savedDefaultTag.current);
+    if (lostIds.length && !window.confirm(`The affiliate id${lostIds.length === 1 ? '' : 's'} ${lostIds.join(', ')} ${lostIds.length === 1 ? 'is' : 'are'} no longer used by any tag. Saving deletes ${lostIds.length === 1 ? 'its' : 'their'} click and visitor counts. Continue?`)) return; // round 6
     setSaveState('saving');
     const payload = {
       tags: formData.btn1AffiliateRules.map(r => ({
@@ -1258,7 +1271,7 @@ export default function App({ suiteMode = false } = {}) {
       body: JSON.stringify(payload),
     })
       .then(r => { if (!r.ok) throw new Error('save failed'); return r.json(); })
-      .then(() => { setSaveState('saved'); setTimeout(() => setSaveState('idle'), 2000); })
+      .then(d => { if (!d || d.saved !== true) throw new Error('save not confirmed'); savedAffiliateIds.current = keptIds; setSaveState('saved'); setTimeout(() => setSaveState('idle'), 2000); }) // the server says saved only after a read-back (round 1)
       .catch(() => { setSaveState('error'); setTimeout(() => setSaveState('idle'), 3000); });
   }, [formData, loaded]);
 
@@ -1296,8 +1309,12 @@ export default function App({ suiteMode = false } = {}) {
           caseSensitive: !!r.caseSensitive, maxLinks: r.maxLinks || '', firstMatchOnly: !!r.firstMatchOnly,
           enabled: r.enabled !== false, clicks: 0, isBroken: false,
         }));
-        if (rules.length) setFormData(prev => ({ ...prev, autoLinkerRules: rules }));
-      } catch (err) { /* ignore malformed file */ }
+        if (!rules.length) { window.alert('The file holds no rules.'); return; }
+        setFormData(prev => {
+          if (prev.autoLinkerRules.length && !window.confirm(`Replace your ${prev.autoLinkerRules.length} current rule${prev.autoLinkerRules.length === 1 ? '' : 's'} with the ${rules.length} from the file? Their click counts go once you save.`)) return prev;
+          return { ...prev, autoLinkerRules: rules };
+        });
+      } catch (err) { window.alert('The file is not a valid rules export.'); }
     };
     reader.readAsText(file);
   }, []);
@@ -1336,43 +1353,62 @@ export default function App({ suiteMode = false } = {}) {
       if (!cfg) return;
       setScanState('scanning');
       fetch(cfg.rest + 'scan', { method: 'POST', headers: { 'X-WP-Nonce': cfg.nonce } })
-        .then(r => r.json())
-        .then(d => {
-          if (d && typeof d === 'object') {
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (ok && d && d.ok === true) { // a scan that could not read its sources answers an error, never counts (round 1)
             setAmazonLinksFound(d.links || 0);
             setScanPages(d.pages || 0);
             setHasScannedSite(true);
             setScanState('done');
+            if (d.partial) window.alert('The site has more posts mentioning Amazon than one scan covers (20,000). The index was updated for the posts scanned; nothing was pruned.');
           } else {
             setScanState('idle');
+            window.alert((d && d.message) || 'The scan could not complete. The index was left as it was.');
           }
         })
-        .catch(() => setScanState('idle'));
+        .catch(() => { setScanState('idle'); window.alert('The scan could not complete. The index was left as it was.'); });
   }, []);
 
   const handleResetBots = useCallback(() => {
       const cfg = window.DEVDAFFI_ADMIN;
       if (!cfg) return;
-      setBotsBlocked(0); // optimistic
+      if (!window.confirm('Reset the blocked-bot counter to zero? This cannot be undone.')) return; // round 2
       fetch(cfg.rest + 'reset-bots', { method: 'POST', headers: { 'X-WP-Nonce': cfg.nonce } })
-        .then(r => r.json())
-        .then(d => { if (d && typeof d.bots_blocked === 'number') setBotsBlocked(d.bots_blocked); })
-        .catch(() => {});
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => { if (ok && d && typeof d.bots_blocked === 'number') setBotsBlocked(d.bots_blocked); else window.alert((d && d.message) || 'The counter could not be reset.'); }) // the count follows the server, never an optimistic 0 (round 1)
+        .catch(() => window.alert('The counter could not be reset.'));
+  }, []);
+
+  // Reset clicks on a tag or rule row: the server deletes the click row and answers only when it is gone (round 1:
+  // the icon used to zero the number on screen and the next load brought it back).
+  const handleResetRowClicks = useCallback((key, apply) => {
+      const cfg = window.DEVDAFFI_ADMIN;
+      if (!cfg || !key) return;
+      if (!window.confirm('Reset the click and visitor counts of this row? This cannot be undone.')) return;
+      fetch(cfg.rest + 'reset-clicks', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce }, body: JSON.stringify({ key }) })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => { if (ok && d && d.clicks === 0) apply(); else window.alert((d && d.message) || 'The clicks could not be reset.'); })
+        .catch(() => window.alert('The clicks could not be reset.'));
   }, []);
 
   // Bulk-replace a dead/OOS ASIN with a new one across every page that links it.
-  const handleReplace = useCallback((oldAsin) => {
+  const handleReplace = useCallback((oldAsin, pageCount) => {
       const cfg = window.DEVDAFFI_ADMIN;
       const next = (replaceVal[oldAsin] || '').trim().toUpperCase();
       if (!cfg || next.length !== 10 || next === oldAsin) return;
+      const n = typeof pageCount === 'number' ? pageCount : 0;
+      if (!window.confirm(`Replace ${oldAsin} with ${next} in ${n} page${n === 1 ? '' : 's'}? The content of every linking post is rewritten; the previous version is kept in a recovery journal only until each post is verified, then it is gone. The new ASIN is then checked with DevDome (uses your quota).`)) return;
       setReplaceBusy(oldAsin);
       fetch(cfg.rest + 'replace', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce }, body: JSON.stringify({ old: oldAsin, new: next }) })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(d => {
-          if (d && d.summary) { setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); }
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (!ok || !d || d.ok !== true) { window.alert((d && d.message) || 'The replacement could not be completed.'); return; } // a partial replacement is named, never shown as done (round 1)
+          if (d.summary) { setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); setMonitorHasMore(!!d.has_more); }
+          setReplaceUnfinished(Array.isArray(d.unfinished) ? d.unfinished : []);
+          if (d.service_state && d.service_state !== 'ok') window.alert('The links were replaced, but DevDome did not check the new ASIN (' + d.service_state + '). Run Check now later.'); // round 6
           setReplaceVal(v => { const c = { ...v }; delete c[oldAsin]; return c; });
         })
-        .catch(() => {})
+        .catch(() => window.alert('The replacement could not be completed.'))
         .finally(() => setReplaceBusy(null));
   }, [replaceVal]);
 
@@ -1382,10 +1418,11 @@ export default function App({ suiteMode = false } = {}) {
       if (!cfg) return;
       setLiveState(s => {
         const offset = append ? s.offset : 0;
-        fetch(cfg.rest + 'monitor/by-status?status=ok&limit=50&offset=' + offset, { headers: { 'X-WP-Nonce': cfg.nonce } })
-          .then(r => r.json())
-          .then(d => {
-            const newItems = (d && d.items) || [];
+        fetch(restQuery(cfg.rest, 'monitor/by-status', 'status=ok&limit=50&offset=' + offset), { headers: { 'X-WP-Nonce': cfg.nonce } })
+          .then(r => r.json().then(d => ({ ok: r.ok, d })))
+          .then(({ ok, d }) => {
+            if (!ok || !d || !Array.isArray(d.items)) { setLiveState(prev => ({ ...prev, loading: false })); window.alert((d && d.message) || 'The live list could not be read.'); return; } // round 3
+            const newItems = d.items;
             setLiveState(prev => ({
               items: append ? [...prev.items, ...newItems] : newItems,
               loading: false,
@@ -1408,11 +1445,16 @@ export default function App({ suiteMode = false } = {}) {
       if (isStatus) setMonitorRefresh(status); else setMonitorState('checking');
       const url = cfg.rest + 'monitor' + (isStatus ? '?status=' + status : '');
       fetch(url, { method: 'POST', headers: { 'X-WP-Nonce': cfg.nonce } })
-        .then(r => r.json())
-        .then(d => {
-          if (d && d.summary) { setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); }
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (!ok || !d || d.ok !== true || !d.summary) { window.alert((d && d.message) || 'The check could not run.'); return; } // rounds 2-4: a failed or partial check is said, never shown as a clean state
+          setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); setMonitorHasMore(!!d.has_more);
+          const st = d.service_state;
+          if (st === 'connect') window.alert('DevDome refused the check: connect this site to a DevDome account first. Nothing was checked.');
+          else if (st === 'quota') window.alert('The monthly Link Radar quota of your account is used up. Nothing was checked.');
+          else if (st === 'unavailable') window.alert('DevDome did not answer; nothing was checked and no status was changed.');
         })
-        .catch(() => {})
+        .catch(() => window.alert('The check could not run.'))
         .finally(() => { if (isStatus) setMonitorRefresh(null); else setMonitorState('idle'); });
   }, []);
 
@@ -1432,6 +1474,7 @@ export default function App({ suiteMode = false } = {}) {
   }, []);
 
   const handleRemoveAutoLinkRule = useCallback((id, e) => {
+    if (!window.confirm('Remove this rule? Its auto-links stop and its click counts are deleted once you save settings.')) return; // round 2
     const btnRect = e?.currentTarget?.getBoundingClientRect();
     const targetY = btnRect ? btnRect.top : null;
     setFormData(prev => {
@@ -1484,7 +1527,7 @@ export default function App({ suiteMode = false } = {}) {
       setFormData(prev => {
           const ruleIndex = prev.autoLinkerRules.findIndex(r => r.id === id);
           if (ruleIndex === -1) return prev;
-          const newRule = { ...prev.autoLinkerRules[ruleIndex], id: newId };
+          const newRule = { ...prev.autoLinkerRules[ruleIndex], id: newId, clicks: 0 }; // a new id has no clicks (round 6)
           const newRules = [...prev.autoLinkerRules];
           newRules.splice(ruleIndex + 1, 0, newRule);
           return { ...prev, autoLinkerRules: newRules };
@@ -1500,6 +1543,7 @@ export default function App({ suiteMode = false } = {}) {
     const newRuleId = Date.now();
     setFormData(prev => {
       const rules = prev[field];
+      if (rules.length >= 100) { window.alert('You can add up to 100 Amazon tags.'); return prev; } // round 2: the copy's limit, enforced
       const lastDomain = rules.length > 0 ? rules[rules.length - 1].domain : 'amazon.com';
       const hasSitewide = rules.some(r => r.domain === lastDomain && r.mode === 'sitewide');
       return { ...prev, [field]: [...rules, { id: newRuleId, affiliateId: '', domain: lastDomain, mode: hasSitewide ? 'rules' : 'sitewide', enabled: true, nickname: '', ruleValues: [], clicks: 0 }] };
@@ -1511,6 +1555,7 @@ export default function App({ suiteMode = false } = {}) {
   }, []);
 
   const handleRemoveRule = useCallback((btnNumber, id, e) => {
+    if (!window.confirm('Remove this tag? Links stop being tagged with it and its click counts are deleted once you save settings.')) return; // round 2
     const btnRect = e?.currentTarget?.getBoundingClientRect();
     const targetY = btnRect ? btnRect.top : null;
     const field = `btn${btnNumber}AffiliateRules`;
@@ -1528,7 +1573,10 @@ export default function App({ suiteMode = false } = {}) {
               }
           }, 10); 
       }
-      return { ...prev, [field]: rules.filter(rule => rule.id !== id) };
+      const remaining = rules.filter(rule => rule.id !== id);
+      const fallbackTag = remaining.length ? `tag-${remaining[0].id}` : '';
+      const autoLinkerRules = (prev.autoLinkerRules || []).map(r => (r.tag === `tag-${id}` ? { ...r, tag: fallbackTag } : r)); // rounds 6-7: a rule that pointed at a removed tag gets the first remaining tag, exactly what the dropdown shows
+      return { ...prev, [field]: rules.filter(rule => rule.id !== id), autoLinkerRules };
     });
   }, []);
 
@@ -1570,6 +1618,11 @@ export default function App({ suiteMode = false } = {}) {
 
   const toggleExclusion = useCallback((item, mode = 'url') => {
     setFormData(prev => {
+        // Excluding a target drops it from every tag's rule list (round 3): say so before it happens.
+        const affected = mode === 'tree' ? [item.value, ...targetOptions.filter(t => t.parentCategory === item.value).map(t => t.value)] : [item.value];
+        const assigned = (prev.btn1AffiliateRules || []).some(r => (r.ruleValues || []).some(v => affected.includes(v))); // round 4: a child of the category counts too
+        const excluding = (mode === 'url' && !(prev.globalExclusions || []).includes(item.value)) || (mode === 'tree' && !(prev.globalExcludedTrees || []).includes(item.value));
+        if (assigned && excluding && !window.confirm('This target is assigned to a tag rule. Excluding it removes it from those rules (not restored when you un-exclude). Continue?')) return prev;
         let exclusions = [...(prev.globalExclusions || [])];
         let excludedTrees = [...(prev.globalExcludedTrees || [])];
         let exceptions = [...(prev.globalExceptions || [])];
@@ -1667,6 +1720,7 @@ export default function App({ suiteMode = false } = {}) {
   }, []);
   
   const handleRuleTargetClearAll = useCallback((btnNumber, ruleId) => {
+    if (!window.confirm('Remove every target from this tag rule? They are gone once you save settings.')) return; // round 4
     const field = `btn${btnNumber}AffiliateRules`;
     setFormData(prev => ({ ...prev, [field]: prev[field].map(rule => rule.id === ruleId ? { ...rule, ruleValues: [] } : rule) }));
   }, []);
@@ -1783,7 +1837,15 @@ export default function App({ suiteMode = false } = {}) {
   if (!loaded) {
     return (
       <div className={suiteMode ? 'flex items-center justify-center min-h-[200px] font-sans' : 'min-h-screen flex items-center justify-center bg-gray-50 font-sans'}>
-        <div className="w-8 h-8 border-[3px] border-gray-200 border-t-indigo-600 rounded-full animate-spin" />
+        {loadError ? (
+          <div className="text-center max-w-md px-6">
+            <div className="text-[14px] font-semibold text-gray-800 mb-2">The settings could not be loaded.</div>
+            <div className="text-[13px] text-gray-600 mb-4">Nothing was changed. If it keeps happening, check the database with your host.</div>
+            <button type="button" onClick={() => window.location.reload()} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-bold rounded-lg">Retry</button>
+          </div>
+        ) : (
+          <div className="w-8 h-8 border-[3px] border-gray-200 border-t-indigo-600 rounded-full animate-spin" />
+        )}
       </div>
     );
   }
@@ -1820,7 +1882,7 @@ export default function App({ suiteMode = false } = {}) {
             exactly like Redirect Manager / SMC. The card + dividers only ever made sense
             inside the old boxed layout. */}
         <div className="bg-transparent">
-          <form className={suiteMode ? 'divide-y divide-gray-100' : ''}>
+          <form className={suiteMode ? 'divide-y divide-gray-100' : ''} onSubmit={(e) => e.preventDefault()}>
 
             {/* --- Link Setup Section --- */}
             <div className={suiteMode ? '' : 'py-6'}>
@@ -1976,7 +2038,7 @@ export default function App({ suiteMode = false } = {}) {
                                               {(rule.clicks > 0) && (
                                                   <button 
                                                       type="button" 
-                                                      onClick={(e) => { e.stopPropagation(); handleRuleChange(1, rule.id, 'clicks', 0); }} 
+                                                      onClick={(e) => { e.stopPropagation(); handleResetRowClicks(rule.affiliateId, () => handleRuleChange(1, rule.id, 'clicks', 0)); }} 
                                                       className="text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none" 
                                                       title="Reset clicks"
                                                   >
@@ -2480,7 +2542,7 @@ export default function App({ suiteMode = false } = {}) {
                                                     {(rule.clicks > 0) && (
                                                         <button 
                                                             type="button" 
-                                                            onClick={(e) => { e.stopPropagation(); handleAutoLinkRuleChange(rule.id, 'clicks', 0); }} 
+                                                            onClick={(e) => { e.stopPropagation(); handleResetRowClicks('__rule__' + rule.id, () => handleAutoLinkRuleChange(rule.id, 'clicks', 0)); }} 
                                                             className="text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none" 
                                                             title="Reset clicks"
                                                         >
@@ -2732,6 +2794,8 @@ export default function App({ suiteMode = false } = {}) {
 
                          {/* Unified status list: 3 always-visible expandable rows (Live / Out of Stock / 404). Live lazy-loads. */}
                          <div className="space-y-3 mb-6">
+                            {monitorHasMore && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">More flagged products exist than the 100 listed here. Replace or fix these first, then check again.</div>}
+                            {replaceUnfinished.length > 0 && <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">An earlier replacement was interrupted before these posts were verified: {replaceUnfinished.join(', ')}. Their original content is kept in the recovery journal (option devdaffi_replace_journal). Open and check them; they are skipped by new replacements until then.</div>}
                             {[
                                { key: 'ok', label: 'Live', badge: 'text-emerald-700 bg-emerald-50 border-emerald-200', iconColor: 'text-emerald-600', hoverBtn: 'text-emerald-600 hover:text-emerald-900', icon: <Check size={16} className="stroke-[3]" /> },
                                { key: 'oos', label: 'Out of Stock', badge: 'text-amber-700 bg-amber-50 border-amber-200', iconColor: 'text-amber-600', hoverBtn: 'text-amber-600 hover:text-amber-900', icon: <AlertCircle size={16} />, refreshable: true },
@@ -2848,7 +2912,7 @@ export default function App({ suiteMode = false } = {}) {
                                                                                <input type="text" maxLength={10} placeholder="New ASIN" value={replaceVal[p.asin] || ''}
                                                                                   onChange={e => { const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); setReplaceVal(s => ({ ...s, [p.asin]: v })); }}
                                                                                   className="w-40 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg font-mono text-[12px] text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" />
-                                                                               <button type="button" onClick={() => handleReplace(p.asin)} disabled={replaceBusy === p.asin || (replaceVal[p.asin] || '').length !== 10 || (replaceVal[p.asin] || '') === p.asin || (svcUsage && svcUsage.state === 'connect')}
+                                                                               <button type="button" onClick={() => handleReplace(p.asin, pages.length)} disabled={replaceBusy === p.asin || (replaceVal[p.asin] || '').length !== 10 || (replaceVal[p.asin] || '') === p.asin || (svcUsage && svcUsage.state === 'connect')}
                                                                                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[12px] font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
                                                                                   {replaceBusy === p.asin ? <><Loader2 size={13} className="animate-spin" /> Replacing…</> : <><ArrowRightLeft size={13} /> Replace on {pages.length} page{pages.length === 1 ? '' : 's'}</>}
                                                                                </button>
@@ -2939,7 +3003,7 @@ export default function App({ suiteMode = false } = {}) {
                             </div>
                          )}
                          {svcUsage && svcUsage.usage && (
-                            <SettingRow label={`${svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1)} Plan`} hint="Link checks used this month on your DevDome account." tooltip="The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.">
+                            <SettingRow label={`${(typeof svcUsage.usage.plan === 'string' && svcUsage.usage.plan ? svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1) : 'Your')} Plan`} hint="Link checks used this month on your DevDome account." tooltip="The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.">
                                <div className="flex flex-wrap items-center gap-3 pt-2.5">
                                   <span className="text-sm font-bold text-gray-900">{svcUsage.usage.used.toLocaleString()} / {svcUsage.usage.limit.toLocaleString()}</span>
                                   {(svcUsage.state === 'quota' || svcUsage.usage.remaining === 0) ? (
@@ -3081,7 +3145,7 @@ export default function App({ suiteMode = false } = {}) {
                    </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button onClick={() => { setFormData(prev => ({...prev, globalExclusions: [], globalExcludedTrees: [], globalExceptions: [] })); setExclusionSelectedItems([]); }} className="flex items-center gap-1.5 text-[13px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors focus:outline-none hidden sm:flex">
+                    <button onClick={() => { if (!window.confirm('Remove every exclusion? They are gone once you save settings.')) return; setFormData(prev => ({...prev, globalExclusions: [], globalExcludedTrees: [], globalExceptions: [] })); setExclusionSelectedItems([]); }} className="flex items-center gap-1.5 text-[13px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors focus:outline-none hidden sm:flex">
                         <Eraser size={16} strokeWidth={2.5} /> Clear All Exclusions
                     </button>
                 </div>
@@ -3261,6 +3325,8 @@ export default function App({ suiteMode = false } = {}) {
                                          const exclusions = new Set(prev.globalExclusions || []); 
                                          const exceptions = new Set(prev.globalExceptions || []);
                                          let rules = [...prev.btn1AffiliateRules];
+                                         const hit = rules.some(r => (r.ruleValues || []).some(v => exclusionSelectedItems.includes(v)));
+                                         if (hit && !window.confirm('Some of these targets are assigned to tag rules. Excluding them removes them from those rules (not restored when you un-exclude). Continue?')) return prev; // round 4
                                          exclusionSelectedItems.forEach(val => { 
                                             exclusions.add(val);
                                             exceptions.delete(val);
@@ -3282,12 +3348,16 @@ export default function App({ suiteMode = false } = {}) {
                                          let exceptions = [...(prev.globalExceptions || [])];
                                          let rules = [...prev.btn1AffiliateRules];
 
+                                         const affectedAll = [];
+                                         exclusionSelectedItems.forEach(val => { if (getOptionData(val)?.type.includes('Category')) { affectedAll.push(val, ...targetOptions.filter(t => t.parentCategory === val).map(t => t.value)); } });
+                                         const hitCat = rules.some(r => (r.ruleValues || []).some(v => affectedAll.includes(v)));
+                                         if (hitCat && !window.confirm('Some of these categories (or posts in them) are assigned to tag rules. Excluding them removes them from those rules (not restored when you un-exclude). Continue?')) return prev; // round 4
                                          exclusionSelectedItems.forEach(val => {
                                              if (getOptionData(val)?.type.includes('Category')) {
                                                  excludedTrees.add(val);
                                                  exclusions.delete(val);
                                                  const children = targetOptions.filter(t => t.parentCategory === val).map(t => t.value);
-                                                 exceptions = exceptions.filter(v => !children.includes(v));
+                                                 exceptions = exceptions.filter(v => v !== val && !children.includes(v)); // round 7: the category itself leaves the exceptions too
                                                  rules = rules.map(r => ({ ...r, ruleValues: (r.ruleValues || []).filter(v => v !== val && !children.includes(v)) }));
                                              }
                                          });
@@ -3381,7 +3451,7 @@ export default function App({ suiteMode = false } = {}) {
                    )}
                </div>
                <div className="flex items-center gap-4 shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0">
-                   <span className="text-xs font-medium text-gray-400">Changes saved automatically</span>
+                   <span className="text-xs font-medium text-gray-400">Applied when you save settings</span>
                    <button onClick={handleCloseModal} className="px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm">Close</button>
                </div>
              </div>

@@ -50,7 +50,10 @@ class DEVDAFFI_Monitor {
 				KEY status (status)
 			) $charset;"
 		);
-		update_option( self::DB_OPTION, self::DB_VERSION );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema check
+		if ( $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
+			update_option( self::DB_OPTION, self::DB_VERSION ); // only when the table is really there (round 1)
+		}
 	}
 
 	/** Check up to $limit ASINs (unchecked first, then oldest-checked) via the server. */
@@ -60,6 +63,7 @@ class DEVDAFFI_Monitor {
 		$status = self::table();
 		$limit  = max( 1, min( 50, (int) $limit ) );
 
+		devdaffi_db_reset_error();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables; limit is int.
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT i.asin, MIN(i.domain) AS domain
@@ -70,6 +74,9 @@ class DEVDAFFI_Monitor {
 			 LIMIT %d",
 			$limit
 		), ARRAY_A );
+		if ( devdaffi_db_failed() || null === $rows ) {
+			return array_merge( self::get_summary(), array( 'error' => 'read' ) ); // a failed read is not "nothing to check" (round 5)
+		}
 
 		if ( empty( $rows ) ) {
 			return self::get_summary();
@@ -82,13 +89,31 @@ class DEVDAFFI_Monitor {
 			$domain  = preg_replace( '/[^a-z0-9.]/', '', strtolower( (string) $r['domain'] ) );
 			$items[] = array( 'asin' => $r['asin'], 'domain' => $domain ? $domain : 'amazon.com' );
 		}
-		$results = self::check_via_server( $items );
+		self::store_results( $rows, self::check_via_server( $items ) );
+		return self::get_summary();
+	}
 
-		$now = current_time( 'mysql', true );
+	/**
+	 * Write only what the server actually answered (round 1): a transport failure, a 401, a 429 or a malformed
+	 * body answers null and NOTHING is written, so a known dead / out-of-stock / live status is never overwritten
+	 * with "unknown" by an outage; an ASIN missing from a valid answer keeps its row too.
+	 */
+	private static function store_results( array $rows, $results ) {
+		if ( ! is_array( $results ) ) {
+			return 0;
+		}
+		global $wpdb;
+		$status = self::table();
+		$now    = current_time( 'mysql', true );
+		$n      = 0;
 		foreach ( $rows as $r ) {
-			$res = isset( $results[ $r['asin'] ] ) ? $results[ $r['asin'] ] : array( 'unknown', 0 );
+			if ( ! isset( $results[ $r['asin'] ] ) ) {
+				continue;
+			}
+			$res = $results[ $r['asin'] ];
+			devdaffi_db_reset_error();
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant table; prepared values.
-			$wpdb->query( $wpdb->prepare(
+			$w = $wpdb->query( $wpdb->prepare(
 				"INSERT INTO $status (asin, status, http_code, last_checked) VALUES (%s, %s, %d, %s)
 				 ON DUPLICATE KEY UPDATE status = VALUES(status), http_code = VALUES(http_code), last_checked = VALUES(last_checked)",
 				$r['asin'],
@@ -96,8 +121,11 @@ class DEVDAFFI_Monitor {
 				(int) $res[1],
 				$now
 			) );
+			if ( false !== $w && ! devdaffi_db_failed() ) {
+				++$n; // only a write that landed counts (round 5)
+			}
 		}
-		return self::get_summary();
+		return $n;
 	}
 
 	/**
@@ -105,7 +133,7 @@ class DEVDAFFI_Monitor {
 	 * key in the plugin — it lives on the server. Fail-soft: a server error leaves every
 	 * ASIN 'unknown' (never false-flags a live link as dead).
 	 *
-	 * @return array<string,array{0:string,1:int}> asin => [status, http_code]
+	 * @return array<string,array{0:string,1:int}>|null asin => [status, http_code]; null = no usable answer (nothing is written)
 	 */
 	private static function check_via_server( $items ) {
 		$out  = array();
@@ -121,36 +149,47 @@ class DEVDAFFI_Monitor {
 			) ),
 		) );
 		if ( is_wp_error( $resp ) ) {
-			return $out;
+			update_option( 'devdaffi_svc_state', 'unavailable', false ); // this attempt's outcome, never the previous one (round 1)
+			return null;
 		}
 		$code = (int) wp_remote_retrieve_response_code( $resp );
 		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
 		if ( 401 === $code ) {
 			update_option( 'devdaffi_svc_state', 'connect', false ); // UI: "Connect your DevDome account"
-			return $out;
+			return null;
 		}
 		if ( 429 === $code ) {
 			update_option( 'devdaffi_svc_state', 'quota', false ); // UI: monthly limit reached
 			if ( is_array( $body ) && ! empty( $body['usage'] ) ) {
 				update_option( 'devdaffi_usage', $body['usage'], false );
 			}
-			return $out;
+			return null;
 		}
-		if ( 200 === $code ) {
-			update_option( 'devdaffi_svc_state', 'ok', false );
-			if ( is_array( $body ) && ! empty( $body['usage'] ) ) {
-				update_option( 'devdaffi_usage', $body['usage'], false );
-			}
-		}
-		if ( empty( $body['results'] ) || ! is_array( $body['results'] ) ) {
-			return $out;
+		if ( 200 !== $code || ! is_array( $body ) || ( array_key_exists( 'ok', $body ) && true !== $body['ok'] ) || empty( $body['results'] ) || ! is_array( $body['results'] ) ) { // the live service answers {results, usage} with NO ok field (proved 2026-09-17 against api.devdome.com): ok is checked only when present
+			update_option( 'devdaffi_svc_state', 'unavailable', false ); // a 200 without usable results is not "ok"
+			return null;
 		}
 		foreach ( $body['results'] as $r ) {
-			if ( empty( $r['asin'] ) ) {
+			// Only a row with an ASIN AND a known status is an answer (round 2): a missing status is not "unknown".
+			if ( ! is_array( $r ) || empty( $r['asin'] ) || ! is_string( $r['asin'] ) || ! isset( $r['status'] ) || ! in_array( $r['status'], array( 'ok', 'oos', 'dead', 'unknown' ), true ) ) {
 				continue;
 			}
-			$st = ( isset( $r['status'] ) && in_array( $r['status'], array( 'ok', 'oos', 'dead', 'unknown' ), true ) ) ? $r['status'] : 'unknown';
-			$out[ $r['asin'] ] = array( $st, isset( $r['http_code'] ) ? (int) $r['http_code'] : 0 );
+			$out[ strtoupper( preg_replace( '/[^A-Za-z0-9]/', '', $r['asin'] ) ) ] = array( $r['status'], isset( $r['http_code'] ) ? (int) $r['http_code'] : 0 );
+		}
+		$asked = array();
+		foreach ( (array) $items as $it ) {
+			if ( isset( $it['asin'] ) ) {
+				$asked[ strtoupper( (string) $it['asin'] ) ] = true;
+			}
+		}
+		$out = array_intersect_key( $out, $asked ); // only answers to what was asked count (round 3)
+		if ( empty( $out ) ) {
+			update_option( 'devdaffi_svc_state', 'unavailable', false ); // nothing usable came back for the requested ASINs
+			return null;
+		}
+		update_option( 'devdaffi_svc_state', 'ok', false ); // ok only once the answer is validated (round 2)
+		if ( ! empty( $body['usage'] ) ) {
+			update_option( 'devdaffi_usage', $body['usage'], false );
 		}
 		return $out;
 	}
@@ -170,8 +209,11 @@ class DEVDAFFI_Monitor {
 		$index  = DEVDAFFI_Scanner::table();
 		$status = self::table();
 
+		devdaffi_db_reset_error();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables.
-		$total = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT asin) FROM $index" );
+		$total_raw = $wpdb->get_var( "SELECT COUNT(DISTINCT asin) FROM $index" );
+		$read_ok   = ! devdaffi_db_failed() && null !== $total_raw;
+		$total     = (int) $total_raw;
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables.
 		$rows  = $wpdb->get_results( "SELECT s.status, COUNT(*) c FROM $status s WHERE s.asin IN (SELECT DISTINCT asin FROM $index) GROUP BY s.status", ARRAY_A );
 
@@ -183,7 +225,8 @@ class DEVDAFFI_Monitor {
 		}
 		$checked = array_sum( $by );
 
-		return array(
+		$read_ok = $read_ok && ! devdaffi_db_failed() && null !== $rows;
+		$out = array(
 			'total'     => $total,
 			'checked'   => $checked,
 			'ok'        => $by['ok'],
@@ -192,37 +235,40 @@ class DEVDAFFI_Monitor {
 			'unknown'   => $by['unknown'],
 			'unchecked' => max( 0, $total - $checked ),
 		);
+		if ( ! $read_ok ) {
+			$out['error'] = 'read'; // the counts are unknown, not zero (round 5)
+		}
+		return $out;
 	}
 
-	/** Current status of one ASIN ('ok'|'oos'|'dead'|'unknown'), or '' if never checked. */
+	/** Current status of one ASIN ('ok'|'oos'|'dead'|'unknown'), '' if never checked, null when the read failed (round 7). */
 	public static function status_of( $asin ) {
 		global $wpdb;
 		$tbl = self::table();
+		devdaffi_db_reset_error();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant table; prepared value.
 		$s = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM $tbl WHERE asin = %s", (string) $asin ) );
+		if ( devdaffi_db_failed() ) {
+			return null;
+		}
 		return $s ? (string) $s : '';
 	}
 
 	/** Check a single ASIN now (its store taken from the index) and store the result. */
 	public static function recheck_asin( $asin ) {
 		global $wpdb;
+		$asin  = strtoupper( preg_replace( '/[^A-Za-z0-9]/', '', (string) $asin ) ); // the answer keys are uppercase (round 3)
 		$index = DEVDAFFI_Scanner::table();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant table; prepared value.
 		$domain = $wpdb->get_var( $wpdb->prepare( "SELECT MIN(domain) FROM $index WHERE asin = %s", $asin ) );
 		$domain = $domain ? preg_replace( '/[^a-z0-9.]/', '', strtolower( $domain ) ) : 'amazon.com';
 		$results = self::check_via_server( array( array( 'asin' => $asin, 'domain' => $domain ? $domain : 'amazon.com' ) ) );
-		$res     = isset( $results[ $asin ] ) ? $results[ $asin ] : array( 'unknown', 0 );
-		$tbl     = self::table();
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant table; prepared values.
-		$wpdb->query( $wpdb->prepare(
-			"INSERT INTO $tbl (asin, status, http_code, last_checked) VALUES (%s, %s, %d, %s)
-			 ON DUPLICATE KEY UPDATE status = VALUES(status), http_code = VALUES(http_code), last_checked = VALUES(last_checked)",
-			$asin,
-			$res[0],
-			(int) $res[1],
-			current_time( 'mysql', true )
-		) );
-		return $res[0];
+		if ( ! is_array( $results ) || ! isset( $results[ $asin ] ) ) {
+			$prev = self::status_of( $asin );
+			return '' !== $prev ? $prev : 'unknown'; // no answer: the stored status stays, nothing is written (round 1)
+		}
+		self::store_results( array( array( 'asin' => $asin ) ), $results );
+		return $results[ $asin ][0];
 	}
 
 	/**
@@ -282,6 +328,11 @@ class DEVDAFFI_Monitor {
 		if ( '' === $keyword ) {
 			return '';
 		}
+		$ck     = 'devdaffi_rep_' . md5( $keyword . '|' . $domain ); // round 9: repeated clicks on one flagged product reuse the answer
+		$cached = get_transient( $ck );
+		if ( is_string( $cached ) ) {
+			return $cached;
+		}
 		$resp = wp_remote_get(
 			self::API . '/search?' . http_build_query( array(
 				'keyword'    => $keyword,
@@ -294,14 +345,17 @@ class DEVDAFFI_Monitor {
 		if ( is_wp_error( $resp ) ) {
 			return '';
 		}
-		$d = json_decode( wp_remote_retrieve_body( $resp ), true );
-		return ( is_array( $d ) && ! empty( $d['asin'] ) ) ? strtoupper( preg_replace( '/[^A-Za-z0-9]/', '', $d['asin'] ) ) : '';
+		$d   = json_decode( wp_remote_retrieve_body( $resp ), true );
+		$rep = ( is_array( $d ) && ! empty( $d['asin'] ) ) ? strtoupper( preg_replace( '/[^A-Za-z0-9]/', '', $d['asin'] ) ) : '';
+		set_transient( $ck, $rep, '' === $rep ? 10 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS ); // a miss is retried sooner
+		return $rep;
 	}
 
 	/**
 	 * Dead/OOS products, ONE entry per ASIN, each with the full list of pages that link it
-	 * (so every place a dead product appears is visible — no orphaned 404s).
-	 * @return array<int,array{asin:string,domain:string,status:string,amazon_url:string,pages:array}>
+	 * (so every place a dead product appears is visible — no orphaned 404s). The limit counts ASINs, not page
+	 * rows (round 1: one heavily linked product used to eat the whole list), and has_more says when more exist.
+	 * @return array{items:array<int,array{asin:string,domain:string,status:string,amazon_url:string,pages:array}>,has_more:bool}
 	 */
 	public static function get_problems( $limit = 1000 ) {
 		global $wpdb;
@@ -310,13 +364,27 @@ class DEVDAFFI_Monitor {
 		$limit  = max( 1, min( 5000, (int) $limit ) );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables; limit int.
+		$asins = $wpdb->get_col( $wpdb->prepare(
+			"SELECT DISTINCT i.asin, s.status FROM $index i INNER JOIN $status s ON s.asin = i.asin
+			 WHERE s.status IN ('dead','oos') ORDER BY s.status, i.asin LIMIT %d",
+			$limit + 1
+		) ); // s.status is selected too: ORDER BY a column outside a DISTINCT list is refused under ONLY_FULL_GROUP_BY (round 7); get_col() takes the first column
+		$asins    = is_array( $asins ) ? $asins : array();
+		$has_more = count( $asins ) > $limit;
+		if ( $has_more ) {
+			array_pop( $asins );
+		}
+		if ( empty( $asins ) ) {
+			return array( 'items' => array(), 'has_more' => false );
+		}
+		$placeholders = implode( ',', array_fill( 0, count( $asins ), '%s' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables; placeholders generated for prepared values.
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT i.asin, i.domain, i.post_id, s.status
 			 FROM $index i INNER JOIN $status s ON s.asin = i.asin
-			 WHERE s.status IN ('dead','oos')
-			 ORDER BY s.status, i.asin
-			 LIMIT %d",
-			$limit
+			 WHERE i.asin IN ($placeholders)
+			 ORDER BY s.status, i.asin",
+			$asins
 		), ARRAY_A );
 
 		$by_asin = array();
@@ -344,7 +412,7 @@ class DEVDAFFI_Monitor {
 		foreach ( $by_asin as $a => $unused ) {
 			$by_asin[ $a ]['title'] = isset( $titles[ strtoupper( $a ) ] ) ? $titles[ strtoupper( $a ) ] : '';
 		}
-		return array_values( $by_asin );
+		return array( 'items' => array_values( $by_asin ), 'has_more' => $has_more );
 	}
 
 	/**
@@ -455,14 +523,18 @@ class DEVDAFFI_Monitor {
 		$tbl    = self::table();
 		$limit  = max( 1, min( 100, (int) $limit ) );
 
+		devdaffi_db_reset_error();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables; prepared values.
 		$rows = $wpdb->get_results( $wpdb->prepare(
 			"SELECT i.asin, MIN(i.domain) AS domain
 			 FROM $index i INNER JOIN $tbl s ON s.asin = i.asin
-			 WHERE s.status = %s GROUP BY i.asin LIMIT %d",
+			 WHERE s.status = %s GROUP BY i.asin ORDER BY MAX(s.last_checked) ASC, i.asin ASC LIMIT %d",
 			$status,
 			$limit
 		), ARRAY_A );
+		if ( devdaffi_db_failed() || null === $rows ) {
+			return array_merge( self::get_summary(), array( 'error' => 'read' ) ); // round 5
+		}
 		if ( empty( $rows ) ) {
 			return self::get_summary();
 		}
@@ -472,21 +544,7 @@ class DEVDAFFI_Monitor {
 			$domain  = preg_replace( '/[^a-z0-9.]/', '', strtolower( (string) $r['domain'] ) );
 			$items[] = array( 'asin' => $r['asin'], 'domain' => $domain ? $domain : 'amazon.com' );
 		}
-		$results = self::check_via_server( $items );
-
-		$now = current_time( 'mysql', true );
-		foreach ( $rows as $r ) {
-			$res = isset( $results[ $r['asin'] ] ) ? $results[ $r['asin'] ] : array( 'unknown', 0 );
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant table; prepared values.
-			$wpdb->query( $wpdb->prepare(
-				"INSERT INTO $tbl (asin, status, http_code, last_checked) VALUES (%s, %s, %d, %s)
-				 ON DUPLICATE KEY UPDATE status = VALUES(status), http_code = VALUES(http_code), last_checked = VALUES(last_checked)",
-				$r['asin'],
-				$res[0],
-				(int) $res[1],
-				$now
-			) );
-		}
+		self::store_results( $rows, self::check_via_server( $items ) );
 		return self::get_summary();
 	}
 }

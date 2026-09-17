@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DevDome Affiliate Manager
  * Description: Amazon affiliate link management: auto-tagging, geo-localization, dead-link recovery, link-health monitoring, keyword auto-linking, click protection, and WooCommerce support.
- * Version: 1.0.7
+ * Version: 1.1.0
  * Author: DevDome
  * Author URI: https://devdome.com
  * Text Domain: devdome-affiliate-manager
@@ -20,7 +20,7 @@ if ( file_exists( __DIR__ . '/wporg-build.php' ) ) {
 	require __DIR__ . '/wporg-build.php';
 }
 
-define( 'DEVDAFFI_VERSION', '1.0.7' );
+define( 'DEVDAFFI_VERSION', '1.1.0' );
 define( 'DEVDAFFI_FILE', __FILE__ );
 define( 'DEVDAFFI_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEVDAFFI_URL', plugin_dir_url( __FILE__ ) );
@@ -42,6 +42,8 @@ if ( file_exists( DEVDAFFI_DIR . 'includes/migrate.php' ) ) {
 	require_once DEVDAFFI_DIR . 'includes/migrate.php';
 }
 
+require_once DEVDAFFI_DIR . 'includes/db-guard.php'; // DESIGN.md 24 / 24.5: failed-query guard + proved option writes (round 1)
+add_filter( 'query', 'devdaffi_db_guard_record', 1 );
 require_once DEVDAFFI_DIR . 'includes/class-devdaffi-settings.php';
 require_once DEVDAFFI_DIR . 'includes/class-devdaffi-bots.php';
 require_once DEVDAFFI_DIR . 'includes/class-devdaffi-clicks.php';
@@ -57,16 +59,20 @@ require_once DEVDAFFI_DIR . 'includes/class-devdaffi-shortcode.php';
 require_once DEVDAFFI_DIR . 'includes/class-devdaffi-woo.php';
 require_once DEVDAFFI_DIR . 'includes/devdome-tools-menu.php';
 require_once DEVDAFFI_DIR . 'includes/class-devdaffi-admin.php';
+require_once DEVDAFFI_DIR . 'includes/abilities.php'; // WordPress Abilities API (6.9+): registers nothing on older cores
 
 // Click-Fraud Filter: contribute this plugin's blocked bot-click count to DevDome Bot
 // Protection's aggregate dashboard (decoupled — Bot Protection applies the filter).
 add_filter( 'devdome_click_fraud_sources', function ( $sources ) {
 	if ( class_exists( 'DEVDAFFI_Clicks' ) ) {
-		$sources[] = array(
-			'key'     => 'affiliate',
-			'label'   => 'Affiliate link clicks',
-			'blocked' => (int) DEVDAFFI_Clicks::get_bots_blocked(),
-		);
+		$blocked = DEVDAFFI_Clicks::get_bots_blocked();
+		if ( null !== $blocked ) {
+			$sources[] = array(
+				'key'     => 'affiliate',
+				'label'   => 'Affiliate link clicks',
+				'blocked' => (int) $blocked,
+			);
+		}
 	}
 	return $sources;
 } );
@@ -78,8 +84,17 @@ add_filter( 'devdome_money_signals', function ( $signals ) {
 		return $signals;
 	}
 	$all   = DEVDAFFI_Clicks::get_all();
-	$total = is_array( $all ) ? array_sum( $all ) : 0; // all clicks incl. the bots bucket
-	$bots  = (int) DEVDAFFI_Clicks::get_bots_blocked();
+	$bots  = DEVDAFFI_Clicks::get_bots_blocked();
+	if ( ! is_array( $all ) || null === $bots ) {
+		return $signals; // a failed read is not "no clicks"
+	}
+	$total = 0; // all clicks incl. the bots bucket, rule attribution rows excluded (round 3: they diluted the bot ratio)
+	foreach ( $all as $k => $n ) {
+		if ( 0 !== strpos( (string) $k, '__rule__' ) ) {
+			$total += (int) $n;
+		}
+	}
+	$bots  = (int) $bots;
 	$ratio = $total > 0 ? $bots / $total : 0;
 	$high  = ( $ratio >= 0.4 && $bots >= 20 );
 	$signals[] = array(
@@ -150,11 +165,29 @@ function devdaffi_compute_hub_summary() {
 	if ( ! class_exists( 'DEVDAFFI_Clicks' ) ) {
 		return;
 	}
-	$all   = (array) DEVDAFFI_Clicks::get_all();          // tag => clicks (includes the bots row)
-	$bots  = (int) DEVDAFFI_Clicks::get_bots_blocked();
-	$clicks = max( 0, array_sum( array_map( 'intval', $all ) ) - $bots );
-	$visitors = array_sum( array_map( 'intval', (array) DEVDAFFI_Clicks::get_visitors() ) );
-	update_option( 'devdaffi_hub_summary', array( 'clicks' => $clicks, 'bots' => $bots, 'visitors' => $visitors ), false );
+	$all  = DEVDAFFI_Clicks::get_all();          // tag => clicks (includes the bots row)
+	$bots = DEVDAFFI_Clicks::get_bots_blocked();
+	$vis  = DEVDAFFI_Clicks::get_visitors();
+	if ( ! is_array( $all ) || null === $bots || ! is_array( $vis ) ) {
+		return; // a failed read keeps the last good summary instead of caching zeros (round 1)
+	}
+	$clicks = 0;
+	$visitors = 0;
+	foreach ( $all as $k => $n ) { // a rule attribution row is the same click counted under its tag (round 2)
+		if ( DEVDAFFI_Clicks::BOTS_KEY !== $k && 0 !== strpos( (string) $k, '__rule__' ) ) {
+			$clicks += (int) $n;
+		}
+	}
+	foreach ( $vis as $k => $n ) {
+		if ( DEVDAFFI_Clicks::BOTS_KEY !== $k && 0 !== strpos( (string) $k, '__rule__' ) ) {
+			$visitors += (int) $n;
+		}
+	}
+	$sum = array( 'clicks' => $clicks, 'bots' => (int) $bots, 'visitors' => $visitors );
+	update_option( 'devdaffi_hub_summary', $sum, false );
+	if ( get_option( 'devdaffi_hub_summary' ) !== $sum ) {
+		return; // the write did not land: the tiles keep the last good numbers, the next run retries (round 5)
+	}
 }
 add_action( 'admin_init', function () {
 	if ( ! wp_next_scheduled( 'devdaffi_hub_summary' ) ) {
@@ -185,6 +218,7 @@ register_activation_hook( __FILE__, function () {
 register_deactivation_hook( __FILE__, function () {
 	flush_rewrite_rules();
 	DEVDAFFI_Scanner::unschedule_cron();
+	wp_clear_scheduled_hook( 'devdaffi_hub_summary' ); // scheduled without args on admin_init (round 3)
 } );
 
 add_action( 'plugins_loaded', function () {
@@ -216,12 +250,22 @@ add_action( 'init', function () {
 }, 11 );
 
 // Front-end click interceptor → routes Amazon clicks through /go.
+/**
+ * The /go endpoint for THIS site. Plain permalinks (no rewrite rules) cannot route /go/, so such a site gets the
+ * query form the same handler answers: /?devdaffi_go=1 (live click-through on test2, 2026-09-17: every /go link
+ * landed on the home page). $u appended as the destination when given.
+ */
+function devdaffi_go_url( $u = '' ) {
+	$base = '' === (string) get_option( 'permalink_structure' ) ? home_url( '/?devdaffi_go=1' ) : home_url( '/go/' );
+	return '' === $u ? $base : add_query_arg( array( 'u' => $u ), $base );
+}
+
 add_action( 'wp_enqueue_scripts', function () {
 	wp_register_script( 'devdaffi-front', DEVDAFFI_URL . 'assets/front.js', array(), DEVDAFFI_VERSION, true );
 	$excluded = is_singular() && DEVDAFFI_Rewriter::is_excluded( get_the_ID() );
 	$mobile   = DEVDAFFI_Settings::get()['mobile_app'];
 	wp_localize_script( 'devdaffi-front', 'DEVDAFFI', array(
-		'go'       => home_url( '/go/' ),
+		'go'       => devdaffi_go_url(),
 		'excluded' => $excluded ? 1 : 0,
 		'mobile'   => array(
 			'enabled'   => ! empty( $mobile['enabled'] ) ? 1 : 0,

@@ -101,8 +101,248 @@ class DEVDAFFI_Settings {
 		return $opt;
 	}
 
-	/** Sanitize + persist. Returns the cleaned settings array. */
+	/** Sanitize + persist. Returns the cleaned settings array; self::$last_saved says whether the row holds it (round 1). */
+	public static $last_saved = false;
 	public static function save( array $input ) {
+		$clean            = self::sanitize( $input );
+		self::$last_saved = self::persist( $clean );
+		return $clean;
+	}
+
+	/** Proved write: true only when the option row holds $clean afterwards (update_option() answers false for "unchanged" too). */
+	public static function persist( array $clean ) {
+		return devdaffi_option_write( DEVDAFFI_OPTION, $clean ); // not autoloaded (add_option at activation); can grow with exclusion lists
+	}
+
+	/** Boolean leaves of the document as dotted paths; the sanitizer treats every other value as "on", so callers check these strictly. */
+	public static function bool_paths() {
+		return array(
+			'geo_enabled', 'woo_button_rewrite', 'scan_auto',
+			'link_options.sponsored', 'link_options.new_tab',
+			'button.skip_tag',
+			'auto_linker.enabled', 'auto_linker.apply.posts', 'auto_linker.apply.pages', 'auto_linker.apply.products',
+			'auto_linker.skip.headings', 'auto_linker.skip.links', 'auto_linker.skip.code', 'auto_linker.skip.first_paragraph', 'auto_linker.skip.blockquotes',
+			'monitor.oos_to_search', 'monitor.dead_to_search',
+			'mobile_app.enabled', 'mobile_app.ios_safari_button',
+			'click_protection.block_bots',
+		);
+	}
+
+	/** Enumerated leaves: the allowed values per dotted path (round 4: an unknown value is refused, never silently defaulted). */
+	public static function enum_paths() {
+		return array(
+			'link_options.rel'                => array( 'nofollow', 'follow' ),
+			'button.link_mode'                => array( 'generated', 'custom' ),
+			'button.generated_domain'         => self::DOMAINS,
+			'scan_frequency_unit'             => array( 'hours', 'days' ),
+			'monitor.oos_mode'                => array( 'search', 'replacement' ),
+			'monitor.dead_mode'               => array( 'search', 'replacement' ),
+			'mobile_app.android_mode'         => array( 'browser', 'intent' ),
+			'click_protection.redirect_method' => array( 'js_302', 'js', '302' ),
+		);
+	}
+
+	/** Lists that replace the stored list as a whole when passed. */
+	public static function list_paths() {
+		return array( 'tags', 'auto_linker.rules', 'exclusions.posts', 'exclusions.pages', 'exclusions.cats', 'exclusions.except_posts', 'exclusions.except_pages' );
+	}
+
+	/** Strict boolean: true/false, 1/0, "1"/"0", "true"/"false", "yes"/"no", "on"/"off"; null for anything else (an empty string too, round 1). */
+	public static function to_bool( $v ) {
+		if ( is_bool( $v ) ) {
+			return $v;
+		}
+		if ( is_int( $v ) && ( 0 === $v || 1 === $v ) ) {
+			return 1 === $v;
+		}
+		if ( is_string( $v ) ) {
+			$s = strtolower( trim( $v ) );
+			if ( in_array( $s, array( '1', 'true', 'yes', 'on' ), true ) ) {
+				return true;
+			}
+			if ( in_array( $s, array( '0', 'false', 'no', 'off' ), true ) ) {
+				return false;
+			}
+		}
+		return null;
+	}
+
+	public static function path_get( array $doc, $path ) {
+		$cur = $doc;
+		foreach ( explode( '.', $path ) as $k ) {
+			if ( ! is_array( $cur ) || ! array_key_exists( $k, $cur ) ) {
+				return null;
+			}
+			$cur = $cur[ $k ];
+		}
+		return $cur;
+	}
+
+	public static function path_set( array &$doc, $path, $value ) {
+		$keys = explode( '.', $path );
+		$last = array_pop( $keys );
+		$cur  = &$doc;
+		foreach ( $keys as $k ) {
+			if ( ! isset( $cur[ $k ] ) || ! is_array( $cur[ $k ] ) ) {
+				$cur[ $k ] = array();
+			}
+			$cur = &$cur[ $k ];
+		}
+		$cur[ $last ] = $value;
+	}
+
+	/** Flatten a partial document into dotted leaves; a list path is ONE leaf. */
+	public static function flatten( array $doc, $prefix = '' ) {
+		$lists = self::list_paths();
+		$out   = array();
+		foreach ( $doc as $k => $v ) {
+			$path = '' === $prefix ? (string) $k : $prefix . '.' . $k;
+			if ( is_array( $v ) && ! in_array( $path, $lists, true ) ) {
+				$out = array_merge( $out, self::flatten( $v, $path ) );
+			} else {
+				$out[ $path ] = $v;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The stored document with the passed leaves overlaid (a partial body never wipes what it does not mention,
+	 * round 1: {"scan_auto":true} used to drop every tag and rule and prune their clicks). Boolean leaves must be real
+	 * booleans (or their documented spellings); a list must be a list. WP_Error on a bad value.
+	 * @return array{doc:array|null,leaves:array}|WP_Error
+	 */
+	public static function merge( array $input ) {
+		$allowed = array( 'tags', 'link_options', 'default_tag', 'geo_enabled', 'woo_button_rewrite', 'exclusions', 'button', 'auto_linker', 'scan_auto', 'scan_frequency', 'scan_frequency_unit', 'monitor', 'mobile_app', 'click_protection' );
+		$body    = array();
+		foreach ( $allowed as $k ) {
+			if ( array_key_exists( $k, $input ) ) {
+				$body[ $k ] = $input[ $k ];
+			}
+		}
+		if ( ! $body ) {
+			return array( 'doc' => null, 'leaves' => array() );
+		}
+		// A group key must be an object (round 2: {"auto_linker": false} used to wipe the rules); a key with a dot
+		// inside an object would forge a path; a tag / rule row must be an object with real booleans.
+		foreach ( array( 'link_options', 'exclusions', 'button', 'auto_linker', 'monitor', 'mobile_app', 'click_protection' ) as $g ) {
+			if ( array_key_exists( $g, $body ) && ! is_array( $body[ $g ] ) ) {
+				/* translators: %s is the setting group. */
+				return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%s must be an object.', 'devdome-affiliate-manager' ), $g ) );
+			}
+		}
+		$dotted = self::dotted_key( $body );
+		if ( '' !== $dotted ) {
+			/* translators: %s is the offending key. */
+			return new WP_Error( 'devdaffi_invalid_input', sprintf( __( 'Key "%s" is not a setting.', 'devdome-affiliate-manager' ), $dotted ) );
+		}
+		$rows_err = self::rows_valid( $body );
+		if ( is_wp_error( $rows_err ) ) {
+			return $rows_err;
+		}
+		$leaves = self::flatten( $body );
+		$bools  = self::bool_paths();
+		$lists  = self::list_paths();
+		$doc    = self::get();
+		$enums = self::enum_paths();
+		foreach ( $leaves as $path => $v ) {
+			if ( isset( $enums[ $path ] ) && ( ! is_string( $v ) || ! in_array( $v, $enums[ $path ], true ) ) ) {
+				/* translators: 1: the setting path, 2: the allowed values. */
+				return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%1$s must be one of: %2$s.', 'devdome-affiliate-manager' ), $path, implode( ', ', $enums[ $path ] ) ) );
+			}
+			if ( 0 === strpos( $path, 'exclusions.' ) && ! self::is_id_list( $v ) ) { // round 3: "bad" or nested values are refused, not silently emptied
+				/* translators: %s is the setting path. */
+				return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%s must be a list of positive ids.', 'devdome-affiliate-manager' ), $path ) );
+			}
+			if ( in_array( $path, $bools, true ) ) {
+				$b = self::to_bool( $v );
+				if ( null === $b ) {
+					/* translators: %s is the setting path. */
+					return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%s must be true or false.', 'devdome-affiliate-manager' ), $path ) );
+				}
+				$leaves[ $path ] = $b;
+			} elseif ( in_array( $path, $lists, true ) && ! is_array( $v ) ) {
+				/* translators: %s is the setting path. */
+				return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%s must be a list.', 'devdome-affiliate-manager' ), $path ) );
+			}
+			self::path_set( $doc, $path, $leaves[ $path ] );
+		}
+		return array( 'doc' => $doc, 'leaves' => $leaves );
+	}
+
+	/** First key holding a dot anywhere in the tree (list rows included), '' when none. */
+	public static function dotted_key( $v ) {
+		if ( ! is_array( $v ) ) {
+			return '';
+		}
+		foreach ( $v as $k => $x ) {
+			if ( is_string( $k ) && false !== strpos( $k, '.' ) ) {
+				return $k;
+			}
+			$d = self::dotted_key( $x );
+			if ( '' !== $d ) {
+				return $d;
+			}
+		}
+		return '';
+	}
+
+	/** Every tag / rule row passed must be an object whose boolean fields are real booleans (round 2). */
+	public static function rows_valid( array $body ) {
+		$sets = array();
+		if ( array_key_exists( 'tags', $body ) ) {
+			$sets[] = array( 'tags', $body['tags'], array( 'enabled' ) );
+		}
+		if ( isset( $body['auto_linker'] ) && is_array( $body['auto_linker'] ) && array_key_exists( 'rules', $body['auto_linker'] ) ) {
+			$sets[] = array( 'auto_linker.rules', $body['auto_linker']['rules'], array( 'enabled', 'case_sensitive', 'first_match_only' ) );
+		}
+		foreach ( $sets as $set ) {
+			list( $path, $rows, $fields ) = $set;
+			if ( ! is_array( $rows ) ) {
+				continue; // merge() reports a non-list
+			}
+			foreach ( $rows as $i => $row ) {
+				if ( ! is_array( $row ) ) {
+					/* translators: %s is the setting path. */
+					return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%s must hold objects.', 'devdome-affiliate-manager' ), $path ) );
+				}
+				foreach ( $fields as $f ) {
+					if ( array_key_exists( $f, $row ) && null === self::to_bool( $row[ $f ] ) ) {
+						/* translators: 1: the setting path, 2: the row number, 3: the field. */
+						return new WP_Error( 'devdaffi_invalid_input', sprintf( __( '%1$s[%2$d].%3$s must be true or false.', 'devdome-affiliate-manager' ), $path, (int) $i, $f ) );
+					}
+				}
+				if ( 'tags' === $path && array_key_exists( 'mode', $row ) && ! in_array( $row['mode'], array( 'sitewide', 'rules' ), true ) ) {
+					/* translators: %d is the row number. */
+					return new WP_Error( 'devdaffi_invalid_input', sprintf( __( 'tags[%d].mode must be sitewide or rules.', 'devdome-affiliate-manager' ), (int) $i ) );
+				}
+				if ( 'tags' === $path && array_key_exists( 'domain', $row ) && ! in_array( $row['domain'], self::DOMAINS, true ) ) {
+					/* translators: %d is the row number. */
+					return new WP_Error( 'devdaffi_invalid_input', sprintf( __( 'tags[%d].domain must be a supported Amazon storefront.', 'devdome-affiliate-manager' ), (int) $i ) );
+				}
+				if ( 'auto_linker.rules' === $path && array_key_exists( 'match_type', $row ) && ! in_array( $row['match_type'], array( 'exact', 'broad' ), true ) ) {
+					/* translators: %d is the row number. */
+					return new WP_Error( 'devdaffi_invalid_input', sprintf( __( 'auto_linker.rules[%d].match_type must be exact or broad.', 'devdome-affiliate-manager' ), (int) $i ) );
+				}
+				if ( 'tags' === $path && array_key_exists( 'rules', $row ) ) {
+					if ( ! is_array( $row['rules'] ) ) {
+						/* translators: %d is the row number. */
+						return new WP_Error( 'devdaffi_invalid_input', sprintf( __( 'tags[%d].rules must be an object with posts, pages and post_cats lists.', 'devdome-affiliate-manager' ), (int) $i ) );
+					}
+					foreach ( array( 'posts', 'pages', 'post_cats' ) as $l ) {
+						if ( array_key_exists( $l, $row['rules'] ) && ! self::is_id_list( $row['rules'][ $l ] ) ) {
+							/* translators: 1: the row number, 2: the list name. */
+							return new WP_Error( 'devdaffi_invalid_input', sprintf( __( 'tags[%1$d].rules.%2$s must be a list of positive ids.', 'devdome-affiliate-manager' ), (int) $i, $l ) );
+						}
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	/** Sanitize only: the document as save() would store it. Pure, writes nothing. */
+	public static function sanitize( array $input ) {
 		$clean = self::defaults();
 
 		if ( ! empty( $input['tags'] ) && is_array( $input['tags'] ) ) {
@@ -122,7 +362,7 @@ class DEVDAFFI_Settings {
 					'nickname'     => isset( $t['nickname'] ) ? substr( sanitize_text_field( (string) $t['nickname'] ), 0, 100 ) : '',
 					'affiliate_id' => isset( $t['affiliate_id'] ) ? substr( preg_replace( '/[^a-zA-Z0-9\-_.]/', '', (string) $t['affiliate_id'] ), 0, 64 ) : '',
 					'domain'       => $domain,
-					'enabled'      => ! empty( $t['enabled'] ),
+					'enabled'      => true === self::to_bool( isset( $t['enabled'] ) ? $t['enabled'] : false ), // "false" is off (round 2)
 					'mode'         => ( isset( $t['mode'] ) && 'rules' === $t['mode'] ) ? 'rules' : 'sitewide',
 					'rules'        => array(
 						'posts'     => self::int_list( $t['rules']['posts'] ?? array() ),
@@ -136,16 +376,16 @@ class DEVDAFFI_Settings {
 		$lo = $input['link_options'] ?? array();
 		$clean['link_options'] = array(
 			'rel'       => ( isset( $lo['rel'] ) && 'follow' === $lo['rel'] ) ? 'follow' : 'nofollow',
-			'sponsored' => ! empty( $lo['sponsored'] ),
-			'new_tab'   => ! empty( $lo['new_tab'] ),
+			'sponsored' => true === self::to_bool( isset( $lo['sponsored'] ) ? $lo['sponsored'] : false ),
+			'new_tab'   => true === self::to_bool( isset( $lo['new_tab'] ) ? $lo['new_tab'] : false ),
 		);
 
 		$clean['default_tag'] = isset( $input['default_tag'] )
 			? substr( preg_replace( '/[^a-zA-Z0-9\-_.]/', '', (string) $input['default_tag'] ), 0, 64 )
 			: '';
 
-		$clean['geo_enabled'] = ! empty( $input['geo_enabled'] );
-		$clean['woo_button_rewrite'] = ! empty( $input['woo_button_rewrite'] );
+		$clean['geo_enabled'] = true === self::to_bool( isset( $input['geo_enabled'] ) ? $input['geo_enabled'] : false ); // round 7
+		$clean['woo_button_rewrite'] = true === self::to_bool( isset( $input['woo_button_rewrite'] ) ? $input['woo_button_rewrite'] : false );
 
 		$ex = ( isset( $input['exclusions'] ) && is_array( $input['exclusions'] ) ) ? $input['exclusions'] : array();
 		$clean['exclusions'] = array(
@@ -173,26 +413,26 @@ class DEVDAFFI_Settings {
 			'link_mode'        => ( isset( $btn['link_mode'] ) && 'custom' === $btn['link_mode'] ) ? 'custom' : 'generated',
 			'custom_link'      => $custom_clean,
 			'generated_domain' => $gen_domain,
-			'skip_tag'         => ! empty( $btn['skip_tag'] ),
+			'skip_tag'         => true === self::to_bool( isset( $btn['skip_tag'] ) ? $btn['skip_tag'] : false ),
 		);
 
 		$al       = ( isset( $input['auto_linker'] ) && is_array( $input['auto_linker'] ) ) ? $input['auto_linker'] : array();
 		$al_apply = ( isset( $al['apply'] ) && is_array( $al['apply'] ) ) ? $al['apply'] : array();
 		$al_skip  = ( isset( $al['skip'] ) && is_array( $al['skip'] ) ) ? $al['skip'] : array();
 		$clean['auto_linker'] = array(
-			'enabled' => ! empty( $al['enabled'] ),
+			'enabled' => true === self::to_bool( isset( $al['enabled'] ) ? $al['enabled'] : false ),
 			'limit'   => max( 1, min( 99, isset( $al['limit'] ) ? (int) $al['limit'] : 2 ) ),
 			'apply'   => array(
-				'posts'    => ! empty( $al_apply['posts'] ),
-				'pages'    => ! empty( $al_apply['pages'] ),
-				'products' => ! empty( $al_apply['products'] ),
+				'posts'    => true === self::to_bool( isset( $al_apply['posts'] ) ? $al_apply['posts'] : false ),
+				'pages'    => true === self::to_bool( isset( $al_apply['pages'] ) ? $al_apply['pages'] : false ),
+				'products' => true === self::to_bool( isset( $al_apply['products'] ) ? $al_apply['products'] : false ),
 			),
 			'skip'    => array(
-				'headings'        => ! empty( $al_skip['headings'] ),
-				'links'           => ! empty( $al_skip['links'] ),
-				'code'            => ! empty( $al_skip['code'] ),
-				'first_paragraph' => ! empty( $al_skip['first_paragraph'] ),
-				'blockquotes'     => ! empty( $al_skip['blockquotes'] ),
+				'headings'        => true === self::to_bool( isset( $al_skip['headings'] ) ? $al_skip['headings'] : false ),
+				'links'           => true === self::to_bool( isset( $al_skip['links'] ) ? $al_skip['links'] : false ),
+				'code'            => true === self::to_bool( isset( $al_skip['code'] ) ? $al_skip['code'] : false ),
+				'first_paragraph' => true === self::to_bool( isset( $al_skip['first_paragraph'] ) ? $al_skip['first_paragraph'] : false ),
+				'blockquotes'     => true === self::to_bool( isset( $al_skip['blockquotes'] ) ? $al_skip['blockquotes'] : false ),
 			),
 			'rules'   => array(),
 		);
@@ -208,44 +448,42 @@ class DEVDAFFI_Settings {
 					'id'               => $rid,
 					'nickname'         => substr( sanitize_text_field( (string) ( $r['nickname'] ?? '' ) ), 0, 100 ),
 					'keywords'         => substr( sanitize_text_field( (string) ( $r['keywords'] ?? '' ) ), 0, 1000 ),
-					'link'             => substr( sanitize_text_field( (string) ( $r['link'] ?? '' ) ), 0, 300 ),
+					'link'             => self::rule_link( $r['link'] ?? '' ), // an http(s) URL or a bare ASIN (round 7: the autolinker builds /dp/ASIN from a bare one)
 					'tag'              => substr( sanitize_text_field( (string) ( $r['tag'] ?? '' ) ), 0, 64 ),
 					'match_type'       => ( isset( $r['match_type'] ) && 'broad' === $r['match_type'] ) ? 'broad' : 'exact',
-					'case_sensitive'   => ! empty( $r['case_sensitive'] ),
+					'case_sensitive'   => true === self::to_bool( isset( $r['case_sensitive'] ) ? $r['case_sensitive'] : false ),
 					'max_links'        => ( isset( $r['max_links'] ) && '' !== $r['max_links'] ) ? max( 0, min( 99, (int) $r['max_links'] ) ) : 0,
-					'first_match_only' => ! empty( $r['first_match_only'] ),
-					'enabled'          => ! empty( $r['enabled'] ),
+					'first_match_only' => true === self::to_bool( isset( $r['first_match_only'] ) ? $r['first_match_only'] : false ),
+					'enabled'          => true === self::to_bool( isset( $r['enabled'] ) ? $r['enabled'] : false ),
 				);
 			}
 		}
 
-		$clean['scan_auto']      = ! empty( $input['scan_auto'] );
+		$clean['scan_auto']      = true === self::to_bool( isset( $input['scan_auto'] ) ? $input['scan_auto'] : false );
 		$clean['scan_frequency'] = max( 1, min( 365, isset( $input['scan_frequency'] ) ? (int) $input['scan_frequency'] : 7 ) );
 		$clean['scan_frequency_unit'] = ( isset( $input['scan_frequency_unit'] ) && 'hours' === $input['scan_frequency_unit'] ) ? 'hours' : 'days';
 
 		$mon = ( isset( $input['monitor'] ) && is_array( $input['monitor'] ) ) ? $input['monitor'] : array();
 		$clean['monitor'] = array(
-			'oos_to_search'  => ! empty( $mon['oos_to_search'] ),
-			'dead_to_search' => ! empty( $mon['dead_to_search'] ),
+			'oos_to_search'  => true === self::to_bool( isset( $mon['oos_to_search'] ) ? $mon['oos_to_search'] : false ),
+			'dead_to_search' => true === self::to_bool( isset( $mon['dead_to_search'] ) ? $mon['dead_to_search'] : false ),
 			'oos_mode'       => ( isset( $mon['oos_mode'] ) && 'search' === $mon['oos_mode'] ) ? 'search' : 'replacement',
 			'dead_mode'      => ( isset( $mon['dead_mode'] ) && 'search' === $mon['dead_mode'] ) ? 'search' : 'replacement',
 		);
 
 		$ma = ( isset( $input['mobile_app'] ) && is_array( $input['mobile_app'] ) ) ? $input['mobile_app'] : array();
 		$clean['mobile_app'] = array(
-			'enabled'           => ! empty( $ma['enabled'] ),
-			'ios_safari_button' => ! empty( $ma['ios_safari_button'] ),
+			'enabled'           => true === self::to_bool( isset( $ma['enabled'] ) ? $ma['enabled'] : false ),
+			'ios_safari_button' => true === self::to_bool( isset( $ma['ios_safari_button'] ) ? $ma['ios_safari_button'] : false ),
 			'android_mode'      => ( isset( $ma['android_mode'] ) && 'intent' === $ma['android_mode'] ) ? 'intent' : 'browser',
 		);
 
 		$cp     = ( isset( $input['click_protection'] ) && is_array( $input['click_protection'] ) ) ? $input['click_protection'] : array();
 		$method = isset( $cp['redirect_method'] ) ? $cp['redirect_method'] : 'js_302';
 		$clean['click_protection'] = array(
-			'block_bots'       => ! empty( $cp['block_bots'] ),
+			'block_bots'       => true === self::to_bool( isset( $cp['block_bots'] ) ? $cp['block_bots'] : false ),
 			'redirect_method'  => in_array( $method, array( 'js_302', 'js', '302' ), true ) ? $method : 'js_302',
 		);
-
-		update_option( DEVDAFFI_OPTION, $clean, false ); // not autoloaded — can grow with exclusion lists
 
 		return $clean;
 	}
@@ -254,6 +492,35 @@ class DEVDAFFI_Settings {
 		if ( ! is_array( $arr ) ) {
 			return array();
 		}
-		return array_values( array_unique( array_filter( array_map( 'intval', $arr ) ) ) );
+		$out = array();
+		foreach ( $arr as $v ) {
+			if ( ( is_int( $v ) || ( is_string( $v ) && ctype_digit( $v ) ) ) && (int) $v > 0 ) { // an id, never a nested value cast to 1 (round 3)
+				$out[] = (int) $v;
+			}
+		}
+		return array_values( array_unique( $out ) );
+	}
+
+	/** A rule link as stored: an http(s) URL (up to 300 chars) or a bare 10-character ASIN; anything else is '' (round 7). */
+	public static function rule_link( $v ) {
+		$v = trim( (string) $v );
+		if ( preg_match( '#^https?://#i', $v ) ) {
+			return substr( sanitize_text_field( $v ), 0, 300 );
+		}
+		$asin = strtoupper( preg_replace( '/[^A-Za-z0-9]/', '', $v ) );
+		return ( 10 === strlen( $asin ) && $asin === strtoupper( $v ) ) ? $asin : '';
+	}
+
+	/** True when $v is a list of positive integer ids (strings of digits accepted). */
+	public static function is_id_list( $v ) {
+		if ( ! is_array( $v ) ) {
+			return false;
+		}
+		foreach ( $v as $x ) {
+			if ( ! ( is_int( $x ) || ( is_string( $x ) && ctype_digit( $x ) ) ) || (int) $x <= 0 ) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

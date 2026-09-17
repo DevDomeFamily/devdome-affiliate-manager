@@ -26,7 +26,10 @@ class DEVDAFFI_Shortcode {
 		);
 		$btn = DEVDAFFI_Settings::get()['button'] ?? array();
 
-		$asin = preg_replace( '/[^A-Za-z0-9]/', '', (string) $atts['asin'] );
+		$asin = strtoupper( preg_replace( '/[^A-Za-z0-9]/', '', (string) $atts['asin'] ) );
+		if ( '' !== $asin && 10 !== strlen( $asin ) ) {
+			$asin = ''; // not an ASIN: no generated /dp/ link from it (round 3)
+		}
 
 		// Marketplace: explicit attribute → saved default → amazon.com.
 		$domain = strtolower( trim( (string) $atts['domain'] ) );
@@ -57,12 +60,16 @@ class DEVDAFFI_Shortcode {
 
 		// Tag + rel/target now (don't rely on the_content — buttons live in widgets,
 		// excerpts and page builders too). The_content rewriter is idempotent if it runs.
+		// An excluded post gets no tag from its buttons either, and a button built without a tag says so on the
+		// anchor so the_content rewriting leaves it alone (round 2).
+		$skip_tag  = $skip_tag || DEVDAFFI_Rewriter::is_excluded( (int) get_the_ID() );
 		$decorated = DEVDAFFI_Rewriter::decorate( $href, get_the_ID(), $skip_tag );
 
 		return sprintf(
-			'<a class="devdaffi-button" href="%s"%s>%s</a>',
+			'<a class="devdaffi-button" href="%s"%s%s>%s</a>',
 			esc_url( $decorated['href'] ),
 			$decorated['attr'], // safe: rel built from esc_attr, target is a literal
+			$skip_tag ? ' data-devdaffi-notag="1"' : '',
 			esc_html( $text )
 		);
 	}

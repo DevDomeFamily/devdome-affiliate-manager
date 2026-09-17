@@ -31,12 +31,12 @@ class DEVDAFFI_Content {
 		};
 		register_rest_route( 'devdaffi/v1', '/content', array(
 			'methods'             => 'GET',
-			'callback'            => array( $this, 'search' ),
+			'callback'            => devdaffi_rest_guarded( array( $this, 'search' ) ),
 			'permission_callback' => $perm,
 		) );
 		register_rest_route( 'devdaffi/v1', '/content/resolve', array(
 			'methods'             => 'GET',
-			'callback'            => array( $this, 'resolve' ),
+			'callback'            => devdaffi_rest_guarded( array( $this, 'resolve' ) ),
 			'permission_callback' => $perm,
 		) );
 	}
@@ -73,10 +73,10 @@ class DEVDAFFI_Content {
 				$this->query_cats( $q, 1, 15 ),
 				$this->query_posts( 'post', $q, 1, 20 )
 			);
-			$total = count( $items );
+			$total = $counts['All']; // the real count, not the preview size (round 3)
 		}
 
-		return rest_ensure_response( array(
+		return devdaffi_rest_success( array( // a failed query behind the picker answers a database error, not an empty list (round 1)
 			'items'    => $items,
 			'counts'   => $counts,
 			'total'    => $total,
@@ -135,7 +135,7 @@ class DEVDAFFI_Content {
 			}
 		}
 
-		return rest_ensure_response( array( 'items' => $items ) );
+		return devdaffi_rest_success( array( 'items' => $items ) );
 	}
 
 	/* ---- queries ---- */

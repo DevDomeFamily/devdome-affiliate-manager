@@ -41,19 +41,25 @@ class DEVDAFFI_Woo {
 	 * opener). Non-ASIN URLs (a simple product's ?add-to-cart= link) don't match and pass through.
 	 */
 	public static function rewrite_url( $url ) {
-		if ( ! preg_match( '#/(?:dp|gp/product|i)/([A-Z0-9]{10})#i', (string) $url, $m ) ) {
+		$path = (string) wp_parse_url( (string) $url, PHP_URL_PATH ); // the path only: a query or fragment holding /dp/ASIN is not a product link (round 3)
+		if ( ! preg_match( '#/(?:dp|gp/product|i)/([A-Z0-9]{10})(?![A-Z0-9])#i', $path, $m ) ) {
 			return $url;
 		}
 		$asin = strtoupper( $m[1] );
-		$btn  = DEVDAFFI_Settings::get()['button'];
+		// The host is judged BEFORE either rewrite mode (round 6): another merchant's /dp/ path is never rewritten.
+		$host  = strtolower( (string) wp_parse_url( (string) $url, PHP_URL_HOST ) );
+		$store = DEVDAFFI_Rewriter::storefront_domain( $host );
+		if ( '' === $store && $host !== DEVDAFFI_Scanner::own_host() ) {
+			return $url; // another site's /dp/ path is not an Amazon product link (round 5)
+		}
+		$btn = DEVDAFFI_Settings::get()['button'];
 		if ( ! empty( $btn['link_mode'] ) && 'custom' === $btn['link_mode'] && ! empty( $btn['custom_link'] ) ) {
 			return str_ireplace( '{ASIN}', $asin, (string) $btn['custom_link'] );
 		}
-		// Build the /dp/ link for the Amazon marketplace the user selected, not a hardcoded
-		// amazon.com — otherwise non-US stores (.co.uk/.de/…) send buyers to the wrong Amazon and
-		// the local tag earns nothing. generated_domain is validated to a known store on save.
-		$gen    = ! empty( $btn['generated_domain'] ) ? $btn['generated_domain'] : 'amazon.com';
+		// A link that already names an Amazon storefront keeps it (an amazon.co.uk product stays on amazon.co.uk,
+		// round 1); only a store-less redirect form (/i/ASIN) uses the marketplace the user selected.
+		$gen   = '' !== $store ? $store : ( ! empty( $btn['generated_domain'] ) ? $btn['generated_domain'] : 'amazon.com' );
 		$amazon = 'https://www.' . $gen . '/dp/' . $asin;
-		return home_url( '/go/?u=' . rawurlencode( $amazon ) );
+		return devdaffi_go_url( $amazon ); // plain-permalink sites get the query form
 	}
 }

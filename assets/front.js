@@ -5,7 +5,8 @@
 	var BASES = [
 		'amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.it', 'amazon.es',
 		'amazon.ca', 'amazon.com.au', 'amazon.co.jp', 'amazon.nl', 'amazon.se', 'amazon.pl',
-		'amazon.com.mx', 'amazon.com.br', 'amazon.in', 'amazon.ae', 'amazon.sg'
+		'amazon.com.mx', 'amazon.com.br', 'amazon.in', 'amazon.ae', 'amazon.sg',
+		'amazon.sa', 'amazon.com.tr', 'amazon.eg', 'amazon.com.be', 'amazon.co.za' // = DEVDAFFI_Settings::DOMAINS (round 1)
 	];
 	var SHORTS = ['amzn.to', 'a.co', 'amzn.eu', 'amzn.asia'];
 	var GO = (window.DEVDAFFI && window.DEVDAFFI.go) || '/go';
@@ -88,8 +89,9 @@
 		var url;
 		try { url = new URL(a.href, window.location.href); } catch (err) { return; }
 		if (!/^https?:$/i.test(url.protocol) || !isAmazon(url.hostname)) return;
+		if (a.hasAttribute('data-devdaffi-notag')) return; // a button built without a tag stays untagged: /go would add one (round 3)
 		e.preventDefault();
-		var dest = GO + '?u=' + encodeURIComponent(url.toString());
+		var dest = GO + (GO.indexOf('?') === -1 ? '?' : '&') + 'u=' + encodeURIComponent(url.toString()); // GO may already carry ?devdaffi_go=1 (plain permalinks)
 		var rid = a.getAttribute('data-da-rule'); // auto-linker rule → per-rule click attribution
 		if (rid) dest += '&r=' + encodeURIComponent(rid);
 		openDest(dest);

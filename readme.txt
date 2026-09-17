@@ -4,7 +4,7 @@ Tags: affiliate, amazon, affiliate links, woocommerce, redirect
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.7
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -120,6 +120,10 @@ Optionally help mobile visitors open Amazon product links in the Amazon app when
 
 Android visitors can use the Amazon app intent, while supported iOS in-app browser situations can offer an Open in Safari option.
 
+= AI and Agent Support =
+
+On WordPress 6.9 and newer, DevDome Affiliate Manager registers WordPress Abilities covering the plugin: every setting (read and update, including tags, auto-linker rules, exclusions and the buy button), adding and removing a tag or a rule, the Link Radar overview, the dead and out-of-stock list, links by status, the account quota, the link scan, the status check, the ASIN replacement, the bot-counter reset and the per-tag click reset. Compatible AI agents and MCP clients can discover and use these abilities when the site exposes them, for example through the official WordPress MCP Adapter. Every ability runs the same code as the plugin screen under the same administrator capability; the ASIN replacement, removing a tag or a rule and the counter reset require an explicit confirmation and are annotated destructive; turning on geo-localization or the scheduled checks, or turning click protection off, requires a confirmation too; agent output never carries e-mail addresses, the site token or server paths. For an unconnected site no ability contacts DevDome except the status check and the quota read you invoke on purpose.
+
 = Built for Amazon Associates Publishers =
 
 DevDome Affiliate Manager combines the functions normally handled by several separate WordPress affiliate tools:
@@ -158,13 +162,17 @@ Off by default. When you enable it, each `/go` click sends the **visitor's IP ad
 
 = DevDome account, https://api.devdome.com/plugin/account, /plugin/disconnect and https://analytics.devdome.com/api/plugin/connect/* =
 
-Made by the shared DevDome library bundled with every plugin in the suite, and never before you have acted: until you press a Connect button, save an Account ID or complete a connection, no account request is made. The account check is a GET carrying this site's domain and its secret token, answered with the Account ID and account email address the token belongs to. Disconnect is a POST with the same two fields, sent only when you press Disconnect. Pressing Connect registers a short-lived connect request (`/api/plugin/connect/start`, a POST with the site domain and token) and, after you authorize on devdome.com, the plugin collects the resulting Account ID server-to-server (`/api/plugin/connect/claim`, same fields plus the request handle); the Account ID and token never travel in your browser's URL. `https://devdome.com/connect/` is a link you click, not a request the plugin makes: your browser goes there to sign in and comes back.
+Made by the shared DevDome library bundled with every plugin in the suite, and never before you have acted: until you press a Connect button, save an Account ID or complete a connection, no account request is made. The account check is a POST carrying this site's domain and its secret token, answered with the Account ID and account email address the token belongs to. Starting a connection (the Connect button) is a POST with the same two fields plus the wp-admin address to return you to; completing it is a POST with the same two fields plus the one-time request token and its nonce of that connect attempt. Disconnect is a POST with the same two fields, sent only when you press Disconnect. Pressing Connect registers a short-lived connect request (`/api/plugin/connect/start`, a POST with the site domain and token) and, after you authorize on devdome.com, the plugin collects the resulting Account ID server-to-server (`/api/plugin/connect/claim`, same fields plus the request handle); the Account ID and token never travel in your browser's URL. `https://devdome.com/connect/` is a link you click, not a request the plugin makes: your browser goes there to sign in and comes back.
 
 = Amazon =
 
-At click time the `/go` endpoint expands Amazon shortlinks (amzn.to, a.co, …) by requesting them server-side from Amazon, so the final product URL can be validated and tagged. The result is cached for 12 hours. Only the shortlink URL is requested; no visitor data is sent to Amazon by the plugin.
+At click time the `/go` endpoint requests the destination server-side from Amazon (a HEAD request, GET when HEAD is refused) and follows its redirects (up to seven hops, Amazon hosts only), so a shortlink (amzn.to, a.co, …) or a redirecting product URL resolves to the final product page that is then validated and tagged. The result is cached for 12 hours per destination. Only the destination URL is requested with a generic user agent; no visitor data is sent to Amazon by the plugin.
 
 This service is provided by Amazon.com, Inc.: [Conditions of Use](https://www.amazon.com/gp/help/customer/display.html?nodeId=GLSBYFE9MGKKQXXM), [Privacy Notice](https://www.amazon.com/gp/help/customer/display.html?nodeId=GX7NJQ4ZB8MHFRNJ).
+
+= Error reports, https://devdome.com/api/plugin/error-report =
+
+Only when you press "Report this error" under a failure message. The report carries the plugin name and version, the shared library version, the WordPress and PHP versions, whether the site is a multisite, the site language, this site's domain and site id, the DevDome account id when the site is linked, the admin screen the error appeared on, the error text shown to you, the plugin's recent log lines for that error, and the site's administration e-mail address so support can reply. Nothing is sent without that click.
 
 = Not contacted on this WordPress.org build =
 
@@ -174,7 +182,7 @@ The bundled shared library also references endpoints this build never calls: the
 
 * Passwords and password hashes.
 * Visitor form input, names or email addresses.
-* Post, page, comment or any other WordPress content: the link scanner runs locally, and only the extracted ASINs leave the site.
+* Post, page, comment or any other WordPress content: the link scanner runs locally, and only the extracted ASINs leave the site. The one exception is the replacement search described above: while dead-link recovery is on, up to six words built from the linking post's title (or its product metadata) are sent as the search keyword.
 
 == Installation ==
 
@@ -191,7 +199,7 @@ To rebuild the bundle from source: `cd admin-ui-src`, then `npm install` and `np
 == Frequently Asked Questions ==
 
 = Do I need an account or an API key? =
-No. Everything works without a DevDome account; the shared services run on the DevDome backend and need no key on your side.
+No API key, ever. Tagging, the auto-linker, exclusions, the buy button, click tracking and click protection work without an account. The hosted parts need a free DevDome account linked from the DevDome Tools screen: Link Radar status checks and replacement search, and geo-localization; without one those simply stay off.
 
 = Does geo-localization need every regional Amazon tag? =
 It only redirects to stores you've added a tag for. Visitors from other countries keep the original link, so you never lose a commission.
@@ -208,6 +216,12 @@ The monitor flags it, and (if enabled) clicks are redirected to a live replaceme
 5. Click protection: bot clicks on affiliate links blocked and counted.
 
 == Changelog ==
+
+= 1.1.0 =
+* WordPress Abilities (6.9+): 16 abilities so AI agents and MCP clients can read and change settings, manage tags and auto-linker rules, run the Link Radar scan and status check, replace an ASIN and read click stats, with confirmations on every destructive action.
+* Shared DevDome core 1.7.4: plugin updates succeed on hosts where a previous update left the plugin folder owned by another system user.
+* Sites with plain permalinks: the /go links use the query form the site can route (clicks are tagged and counted there too), and the content picker's REST call no longer answers 404.
+* Honest answers everywhere: a failed database read is reported as such instead of "no clicks" or "nothing to fix"; settings saves are read back before "Saved"; a partial settings request never wipes tags or rules; the ASIN replacement checks every write and names the posts it could not change; a Link Radar outage never overwrites a known status; the Reset clicks icon now really resets; /go records clicks only for your own tags and refuses a shortlink that leaves Amazon.
 
 = 1.0.7 =
 * Connect fix (shared DevDome core 1.6.6): the connect claim now waits up to 30 seconds and keeps the handshake for 20 minutes so a refresh retries it, the DevDome hub shows why a connect failed with a Try again link, and the verify file is served through a query form for hosts that answer /.well-known/ before WordPress.

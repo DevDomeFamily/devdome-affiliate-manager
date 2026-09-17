@@ -7484,6 +7484,7 @@ const X = createLucideIcon("X", [
   ["path", { d: "M18 6 6 18", key: "1bl5f8" }],
   ["path", { d: "m6 6 12 12", key: "d8bk6v" }]
 ]);
+const restQuery = (base, route, query) => base + route + (base.indexOf("?") === -1 ? "?" : "&") + query;
 const TYPE_ORDER = ["Page", "Post Category", "Post", "Product Category", "Product"];
 const getTypeLabel = (type) => {
   if (type === "Page") return "Pages";
@@ -7950,7 +7951,7 @@ const ActionGroup = React.memo(({ item, isSelected, isCurrentInherited, isUsedEl
     return formatTagLabel(rule.nickname, rule.domain, rule.affiliateId, rule.index);
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 h-full", onClick: (e) => e.stopPropagation(), children: [
-    currentSelectedId !== currentRuleId && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: () => {
+    currentSelectedId !== currentRuleId && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => {
       onTransfer(item.value, currentSelectedId, currentRuleId);
       setIsOpen(false);
     }, className: "text-[10px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1.5 rounded shadow-sm hover:bg-indigo-100 hover:text-indigo-800 transition-colors flex items-center gap-1.5", title: `Move instantly to ${getRuleTooltip(currentRuleId)}`, children: [
@@ -7968,7 +7969,7 @@ const ActionGroup = React.memo(({ item, isSelected, isCurrentInherited, isUsedEl
       ] }),
       isOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `absolute right-0 ${openUpwards ? "bottom-[calc(100%+6px)] origin-bottom" : "top-[calc(100%+6px)] origin-top"} bg-white border border-gray-200 shadow-2xl rounded-xl p-2 z-[999] min-w-max max-w-[calc(100vw-32px)] overflow-x-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150`, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1 border-b border-gray-100 pb-1.5 sticky left-0", children: "Move to Tag..." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateRows: `repeat(${Math.min(10, allRules.length)}, minmax(0, 1fr))`, gridAutoFlow: "column", gap: "2px 6px" }, children: allRules.map((r2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: () => {
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateRows: `repeat(${Math.min(10, allRules.length)}, minmax(0, 1fr))`, gridAutoFlow: "column", gap: "2px 6px" }, children: allRules.map((r2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => {
           if (r2.id !== currentSelectedId) onTransfer(item.value, currentSelectedId, r2.id);
           setIsOpen(false);
         }, title: formatTagLabel(r2.nickname, r2.domain, r2.affiliateId, r2.index), className: `text-left text-[10px] font-bold px-2 py-1 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${r2.id === currentSelectedId ? "bg-indigo-50 text-indigo-700 cursor-default ring-1 ring-indigo-200 inset-ring" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`, children: [
@@ -7977,7 +7978,7 @@ const ActionGroup = React.memo(({ item, isSelected, isCurrentInherited, isUsedEl
           r2.index
         ] }, r2.id)) })
       ] }),
-      !fallsBackToSitewide && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: handleRemoveAssignment, className: "px-2 border-l border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center focus:outline-none h-full", title: "Remove assignment", children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 16, strokeWidth: 2.5 }) })
+      !fallsBackToSitewide && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleRemoveAssignment, className: "px-2 border-l border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center focus:outline-none h-full", title: "Remove assignment", children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 16, strokeWidth: 2.5 }) })
     ] })
   ] });
 });
@@ -8016,7 +8017,7 @@ const AutoLinkTagDropdown = React.memo(({ value, onChange, allRules }) => {
     ] }),
     isOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `absolute right-0 ${openUpwards ? "bottom-[calc(100%+6px)] origin-bottom" : "top-[calc(100%+6px)] origin-top"} bg-white border border-gray-200 shadow-2xl rounded-xl p-2 z-[999] min-w-[100px] max-w-[calc(100vw-32px)] overflow-x-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150`, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1 border-b border-gray-100 pb-1.5 sticky left-0", children: "Select Tag" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-1 max-h-[200px] overflow-y-auto custom-scrollbar", children: allRules.map((r2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: () => {
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-1 max-h-[200px] overflow-y-auto custom-scrollbar", children: allRules.map((r2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => {
         onChange(`tag-${r2.id}`);
         setIsOpen(false);
       }, title: formatTagLabel(r2.nickname, r2.domain, r2.affiliateId, r2.index), className: `text-left text-[11px] font-bold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${r2.id === currentRule.id ? "bg-indigo-50 text-indigo-700 cursor-default ring-1 ring-indigo-200 inset-ring" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`, children: [
@@ -8071,13 +8072,15 @@ const SearchableDropdown = React.memo(({ options, onSelect, onBulkSelect, onBulk
     const ctrl = new AbortController();
     setSrv((s) => ({ ...s, loading: true }));
     const h = setTimeout(() => {
-      const url = `${cfg.rest}content?q=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(activeFilter)}&page=${currentPage}`;
-      fetch(url, { headers: { "X-WP-Nonce": cfg.nonce }, signal: ctrl.signal }).then((r2) => r2.json()).then((d) => {
-        if (!d || !Array.isArray(d.items)) return;
+      const url = restQuery(cfg.rest, "content", `q=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(activeFilter)}&page=${currentPage}`);
+      fetch(url, { headers: { "X-WP-Nonce": cfg.nonce }, signal: ctrl.signal }).then((r2) => r2.ok ? r2.json() : Promise.reject(new Error("content search failed"))).then((d) => {
+        if (!d || !Array.isArray(d.items)) {
+          setSrv((s) => ({ ...s, loading: false }));
+          return;
+        }
         cacheItems(d.items);
         setSrv({ items: d.items, counts: d.counts || {}, total: d.total || d.items.length, loading: false });
-      }).catch(() => {
-      });
+      }).catch(() => setSrv((s) => ({ ...s, loading: false })));
     }, 250);
     return () => {
       clearTimeout(h);
@@ -8252,7 +8255,7 @@ const SearchableDropdown = React.memo(({ options, onSelect, onBulkSelect, onBulk
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center flex-nowrap gap-2 p-2 bg-slate-50 border-b border-gray-200 overflow-x-auto relative z-20 shadow-sm custom-scrollbar", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[11px] font-bold text-gray-600 pl-1 pr-1.5 whitespace-nowrap flex items-center gap-1", children: [
           "Filters:",
-          /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: `Showing ${options.length} of 500 total pages that include Amazon links.`, alignment: "left", direction: "bottom", className: "z-[80]" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: `Showing ${options.length} page${options.length === 1 ? "" : "s"} that include Amazon links.`, alignment: "left", direction: "bottom", className: "z-[80]" })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: (e) => {
           e.stopPropagation();
@@ -8505,13 +8508,19 @@ function App({ suiteMode = false } = {}) {
   const [monitorSummary, setMonitorSummary] = reactExports.useState({ total: 0, checked: 0, ok: 0, oos: 0, dead: 0, unchecked: 0 });
   const [svcUsage, setSvcUsage] = reactExports.useState(null);
   const [monitorProblems, setMonitorProblems] = reactExports.useState([]);
+  const [loadError, setLoadError] = reactExports.useState(false);
+  const [monitorHasMore, setMonitorHasMore] = reactExports.useState(false);
+  const [replaceUnfinished, setReplaceUnfinished] = reactExports.useState([]);
   const [monitorState, setMonitorState] = reactExports.useState("idle");
   const [monitorRefresh, setMonitorRefresh] = reactExports.useState(null);
   const [expandedProblems, setExpandedProblems] = reactExports.useState({});
   const [listOpen, setListOpen] = reactExports.useState(() => {
     try {
       const s = localStorage.getItem("devdaffi_link_health_open");
-      if (s) return JSON.parse(s);
+      if (s) {
+        const v2 = JSON.parse(s);
+        if (v2 && typeof v2 === "object" && !Array.isArray(v2)) return v2;
+      }
     } catch (e) {
     }
     return { dead: false, oos: false, ok: false };
@@ -8545,6 +8554,7 @@ function App({ suiteMode = false } = {}) {
   const globalAutoLinkerSearchRef = reactExports.useRef(null);
   const modalScrollRef = reactExports.useRef(null);
   const savedDefaultTag = reactExports.useRef("");
+  const savedAffiliateIds = reactExports.useRef([]);
   const [saveState, setSaveState] = reactExports.useState("idle");
   const [loaded, setLoaded] = reactExports.useState(false);
   const [, setContentReady] = reactExports.useState(0);
@@ -8556,9 +8566,14 @@ function App({ suiteMode = false } = {}) {
     }
     const headers = { "X-WP-Nonce": cfg.nonce };
     targetOptions = [];
-    fetch(cfg.rest + "settings", { headers }).then((r2) => r2.json()).then((data) => {
-      if (!data || typeof data !== "object") return;
+    fetch(cfg.rest + "settings", { headers }).then((r2) => {
+      if (!r2.ok) throw new Error("settings load failed");
+      return r2.json();
+    }).then((data) => {
+      if (!data || typeof data !== "object" || !Array.isArray(data.tags)) throw new Error("settings shape");
       savedDefaultTag.current = data.default_tag || "";
+      savedAffiliateIds.current = (Array.isArray(data.tags) ? data.tags : []).map((t2) => String(t2.affiliate_id || "")).filter(Boolean);
+      setReplaceUnfinished(Array.isArray(data.replace_unfinished) ? data.replace_unfinished : []);
       const lo = data.link_options || {};
       const tags = Array.isArray(data.tags) ? data.tags : [];
       const exc = backendToExclusions(data.exclusions || {});
@@ -8652,22 +8667,28 @@ function App({ suiteMode = false } = {}) {
         });
       }
     }).catch(() => {
+      setLoadError(true);
     });
-    fetch(cfg.rest + "monitor", { headers }).then((r2) => r2.json()).then((d) => {
-      if (d && d.summary) {
+    fetch(cfg.rest + "monitor", { headers }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (ok2 && d && d.summary) {
         setMonitorSummary(d.summary);
         setMonitorProblems(d.problems || []);
+        setMonitorHasMore(!!d.has_more);
+      } else {
+        window.alert(d && d.message || "The Link Radar counts could not be read.");
       }
-    }).catch(() => {
-    });
-    fetch(cfg.rest + "usage", { headers }).then((r2) => r2.json()).then((d) => {
-      if (d && d.state) setSvcUsage(d);
-    }).catch(() => {
-    });
+    }).catch(() => window.alert("The Link Radar counts could not be read."));
+    fetch(cfg.rest + "usage", { headers }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (ok2 && d && d.state) setSvcUsage(d);
+      else setSvcUsage({ connected: false, usage: null, state: "unavailable" });
+    }).catch(() => setSvcUsage({ connected: false, usage: null, state: "unavailable" }));
   }, []);
   const handleSave = reactExports.useCallback(() => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg || !loaded) return;
+    const keptIds = formData.btn1AffiliateRules.map((r2) => String(r2.affiliateId || "").trim()).filter(Boolean);
+    const lostIds = savedAffiliateIds.current.filter((id2) => !keptIds.includes(id2) && id2 !== savedDefaultTag.current);
+    if (lostIds.length && !window.confirm(`The affiliate id${lostIds.length === 1 ? "" : "s"} ${lostIds.join(", ")} ${lostIds.length === 1 ? "is" : "are"} no longer used by any tag. Saving deletes ${lostIds.length === 1 ? "its" : "their"} click and visitor counts. Continue?`)) return;
     setSaveState("saving");
     const payload = {
       tags: formData.btn1AffiliateRules.map((r2) => ({
@@ -8748,7 +8769,9 @@ function App({ suiteMode = false } = {}) {
     }).then((r2) => {
       if (!r2.ok) throw new Error("save failed");
       return r2.json();
-    }).then(() => {
+    }).then((d) => {
+      if (!d || d.saved !== true) throw new Error("save not confirmed");
+      savedAffiliateIds.current = keptIds;
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2e3);
     }).catch(() => {
@@ -8796,8 +8819,16 @@ function App({ suiteMode = false } = {}) {
           clicks: 0,
           isBroken: false
         }));
-        if (rules.length) setFormData((prev) => ({ ...prev, autoLinkerRules: rules }));
+        if (!rules.length) {
+          window.alert("The file holds no rules.");
+          return;
+        }
+        setFormData((prev) => {
+          if (prev.autoLinkerRules.length && !window.confirm(`Replace your ${prev.autoLinkerRules.length} current rule${prev.autoLinkerRules.length === 1 ? "" : "s"} with the ${rules.length} from the file? Their click counts go once you save.`)) return prev;
+          return { ...prev, autoLinkerRules: rules };
+        });
       } catch (err) {
+        window.alert("The file is not a valid rules export.");
       }
     };
     reader.readAsText(file);
@@ -8837,51 +8868,78 @@ function App({ suiteMode = false } = {}) {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg) return;
     setScanState("scanning");
-    fetch(cfg.rest + "scan", { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json()).then((d) => {
-      if (d && typeof d === "object") {
+    fetch(cfg.rest + "scan", { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (ok2 && d && d.ok === true) {
         setAmazonLinksFound(d.links || 0);
         setScanPages(d.pages || 0);
         setHasScannedSite(true);
         setScanState("done");
+        if (d.partial) window.alert("The site has more posts mentioning Amazon than one scan covers (20,000). The index was updated for the posts scanned; nothing was pruned.");
       } else {
         setScanState("idle");
+        window.alert(d && d.message || "The scan could not complete. The index was left as it was.");
       }
-    }).catch(() => setScanState("idle"));
+    }).catch(() => {
+      setScanState("idle");
+      window.alert("The scan could not complete. The index was left as it was.");
+    });
   }, []);
   const handleResetBots = reactExports.useCallback(() => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg) return;
-    setBotsBlocked(0);
-    fetch(cfg.rest + "reset-bots", { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json()).then((d) => {
-      if (d && typeof d.bots_blocked === "number") setBotsBlocked(d.bots_blocked);
-    }).catch(() => {
-    });
+    if (!window.confirm("Reset the blocked-bot counter to zero? This cannot be undone.")) return;
+    fetch(cfg.rest + "reset-bots", { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (ok2 && d && typeof d.bots_blocked === "number") setBotsBlocked(d.bots_blocked);
+      else window.alert(d && d.message || "The counter could not be reset.");
+    }).catch(() => window.alert("The counter could not be reset."));
   }, []);
-  const handleReplace = reactExports.useCallback((oldAsin) => {
+  const handleResetRowClicks = reactExports.useCallback((key, apply) => {
+    const cfg = window.DEVDAFFI_ADMIN;
+    if (!cfg || !key) return;
+    if (!window.confirm("Reset the click and visitor counts of this row? This cannot be undone.")) return;
+    fetch(cfg.rest + "reset-clicks", { method: "POST", headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce }, body: JSON.stringify({ key }) }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (ok2 && d && d.clicks === 0) apply();
+      else window.alert(d && d.message || "The clicks could not be reset.");
+    }).catch(() => window.alert("The clicks could not be reset."));
+  }, []);
+  const handleReplace = reactExports.useCallback((oldAsin, pageCount) => {
     const cfg = window.DEVDAFFI_ADMIN;
     const next = (replaceVal[oldAsin] || "").trim().toUpperCase();
     if (!cfg || next.length !== 10 || next === oldAsin) return;
+    const n2 = typeof pageCount === "number" ? pageCount : 0;
+    if (!window.confirm(`Replace ${oldAsin} with ${next} in ${n2} page${n2 === 1 ? "" : "s"}? The content of every linking post is rewritten; the previous version is kept in a recovery journal only until each post is verified, then it is gone. The new ASIN is then checked with DevDome (uses your quota).`)) return;
     setReplaceBusy(oldAsin);
-    fetch(cfg.rest + "replace", { method: "POST", headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce }, body: JSON.stringify({ old: oldAsin, new: next }) }).then((r2) => r2.ok ? r2.json() : Promise.reject()).then((d) => {
-      if (d && d.summary) {
+    fetch(cfg.rest + "replace", { method: "POST", headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce }, body: JSON.stringify({ old: oldAsin, new: next }) }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (!ok2 || !d || d.ok !== true) {
+        window.alert(d && d.message || "The replacement could not be completed.");
+        return;
+      }
+      if (d.summary) {
         setMonitorSummary(d.summary);
         setMonitorProblems(d.problems || []);
+        setMonitorHasMore(!!d.has_more);
       }
+      setReplaceUnfinished(Array.isArray(d.unfinished) ? d.unfinished : []);
+      if (d.service_state && d.service_state !== "ok") window.alert("The links were replaced, but DevDome did not check the new ASIN (" + d.service_state + "). Run Check now later.");
       setReplaceVal((v2) => {
         const c = { ...v2 };
         delete c[oldAsin];
         return c;
       });
-    }).catch(() => {
-    }).finally(() => setReplaceBusy(null));
+    }).catch(() => window.alert("The replacement could not be completed.")).finally(() => setReplaceBusy(null));
   }, [replaceVal]);
   const loadLive = reactExports.useCallback((append) => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg) return;
     setLiveState((s) => {
       const offset = append ? s.offset : 0;
-      fetch(cfg.rest + "monitor/by-status?status=ok&limit=50&offset=" + offset, { headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json()).then((d) => {
-        const newItems = d && d.items || [];
+      fetch(restQuery(cfg.rest, "monitor/by-status", "status=ok&limit=50&offset=" + offset), { headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+        if (!ok2 || !d || !Array.isArray(d.items)) {
+          setLiveState((prev) => ({ ...prev, loading: false }));
+          window.alert(d && d.message || "The live list could not be read.");
+          return;
+        }
+        const newItems = d.items;
         setLiveState((prev) => ({
           items: append ? [...prev.items, ...newItems] : newItems,
           loading: false,
@@ -8900,13 +8958,19 @@ function App({ suiteMode = false } = {}) {
     if (isStatus) setMonitorRefresh(status);
     else setMonitorState("checking");
     const url = cfg.rest + "monitor" + (isStatus ? "?status=" + status : "");
-    fetch(url, { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json()).then((d) => {
-      if (d && d.summary) {
-        setMonitorSummary(d.summary);
-        setMonitorProblems(d.problems || []);
+    fetch(url, { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (!ok2 || !d || d.ok !== true || !d.summary) {
+        window.alert(d && d.message || "The check could not run.");
+        return;
       }
-    }).catch(() => {
-    }).finally(() => {
+      setMonitorSummary(d.summary);
+      setMonitorProblems(d.problems || []);
+      setMonitorHasMore(!!d.has_more);
+      const st = d.service_state;
+      if (st === "connect") window.alert("DevDome refused the check: connect this site to a DevDome account first. Nothing was checked.");
+      else if (st === "quota") window.alert("The monthly Link Radar quota of your account is used up. Nothing was checked.");
+      else if (st === "unavailable") window.alert("DevDome did not answer; nothing was checked and no status was changed.");
+    }).catch(() => window.alert("The check could not run.")).finally(() => {
       if (isStatus) setMonitorRefresh(null);
       else setMonitorState("idle");
     });
@@ -8927,6 +8991,7 @@ function App({ suiteMode = false } = {}) {
   }, []);
   const handleRemoveAutoLinkRule = reactExports.useCallback((id2, e) => {
     var _a2;
+    if (!window.confirm("Remove this rule? Its auto-links stop and its click counts are deleted once you save settings.")) return;
     const btnRect = (_a2 = e == null ? void 0 : e.currentTarget) == null ? void 0 : _a2.getBoundingClientRect();
     const targetY = btnRect ? btnRect.top : null;
     setFormData((prev) => {
@@ -8988,7 +9053,7 @@ function App({ suiteMode = false } = {}) {
     setFormData((prev) => {
       const ruleIndex = prev.autoLinkerRules.findIndex((r2) => r2.id === id2);
       if (ruleIndex === -1) return prev;
-      const newRule = { ...prev.autoLinkerRules[ruleIndex], id: newId };
+      const newRule = { ...prev.autoLinkerRules[ruleIndex], id: newId, clicks: 0 };
       const newRules = [...prev.autoLinkerRules];
       newRules.splice(ruleIndex + 1, 0, newRule);
       return { ...prev, autoLinkerRules: newRules };
@@ -9003,6 +9068,10 @@ function App({ suiteMode = false } = {}) {
     const newRuleId = Date.now();
     setFormData((prev) => {
       const rules = prev[field];
+      if (rules.length >= 100) {
+        window.alert("You can add up to 100 Amazon tags.");
+        return prev;
+      }
       const lastDomain = rules.length > 0 ? rules[rules.length - 1].domain : "amazon.com";
       const hasSitewide = rules.some((r2) => r2.domain === lastDomain && r2.mode === "sitewide");
       return { ...prev, [field]: [...rules, { id: newRuleId, affiliateId: "", domain: lastDomain, mode: hasSitewide ? "rules" : "sitewide", enabled: true, nickname: "", ruleValues: [], clicks: 0 }] };
@@ -9014,6 +9083,7 @@ function App({ suiteMode = false } = {}) {
   }, []);
   const handleRemoveRule = reactExports.useCallback((btnNumber, id2, e) => {
     var _a2;
+    if (!window.confirm("Remove this tag? Links stop being tagged with it and its click counts are deleted once you save settings.")) return;
     const btnRect = (_a2 = e == null ? void 0 : e.currentTarget) == null ? void 0 : _a2.getBoundingClientRect();
     const targetY = btnRect ? btnRect.top : null;
     const field = `btn${btnNumber}AffiliateRules`;
@@ -9031,7 +9101,10 @@ function App({ suiteMode = false } = {}) {
           }
         }, 10);
       }
-      return { ...prev, [field]: rules.filter((rule) => rule.id !== id2) };
+      const remaining = rules.filter((rule) => rule.id !== id2);
+      const fallbackTag = remaining.length ? `tag-${remaining[0].id}` : "";
+      const autoLinkerRules = (prev.autoLinkerRules || []).map((r2) => r2.tag === `tag-${id2}` ? { ...r2, tag: fallbackTag } : r2);
+      return { ...prev, [field]: rules.filter((rule) => rule.id !== id2), autoLinkerRules };
     });
   }, []);
   const handleDragStart = reactExports.useCallback((e, index) => {
@@ -9082,6 +9155,10 @@ function App({ suiteMode = false } = {}) {
   }, []);
   const toggleExclusion = reactExports.useCallback((item, mode = "url") => {
     setFormData((prev) => {
+      const affected = mode === "tree" ? [item.value, ...targetOptions.filter((t2) => t2.parentCategory === item.value).map((t2) => t2.value)] : [item.value];
+      const assigned = (prev.btn1AffiliateRules || []).some((r2) => (r2.ruleValues || []).some((v2) => affected.includes(v2)));
+      const excluding = mode === "url" && !(prev.globalExclusions || []).includes(item.value) || mode === "tree" && !(prev.globalExcludedTrees || []).includes(item.value);
+      if (assigned && excluding && !window.confirm("This target is assigned to a tag rule. Excluding it removes it from those rules (not restored when you un-exclude). Continue?")) return prev;
       let exclusions = [...prev.globalExclusions || []];
       let excludedTrees = [...prev.globalExcludedTrees || []];
       let exceptions = [...prev.globalExceptions || []];
@@ -9173,6 +9250,7 @@ function App({ suiteMode = false } = {}) {
     setFormData((prev) => ({ ...prev, [field]: prev[field].map((rule) => rule.id === ruleId ? { ...rule, ruleValues: rule.ruleValues.filter((v2) => v2 !== valueToRemove) } : rule) }));
   }, []);
   const handleRuleTargetClearAll = reactExports.useCallback((btnNumber, ruleId) => {
+    if (!window.confirm("Remove every target from this tag rule? They are gone once you save settings.")) return;
     const field = `btn${btnNumber}AffiliateRules`;
     setFormData((prev) => ({ ...prev, [field]: prev[field].map((rule) => rule.id === ruleId ? { ...rule, ruleValues: [] } : rule) }));
   }, []);
@@ -9267,7 +9345,11 @@ function App({ suiteMode = false } = {}) {
     return formData.btn1AffiliateRules.map((r2, i) => ({ id: r2.id, index: i + 1, nickname: r2.nickname, domain: r2.domain, affiliateId: r2.affiliateId }));
   }, [formData.btn1AffiliateRules]);
   if (!loaded) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "flex items-center justify-center min-h-[200px] font-sans" : "min-h-screen flex items-center justify-center bg-gray-50 font-sans", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-8 h-8 border-[3px] border-gray-200 border-t-indigo-600 rounded-full animate-spin" }) });
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "flex items-center justify-center min-h-[200px] font-sans" : "min-h-screen flex items-center justify-center bg-gray-50 font-sans", children: loadError ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center max-w-md px-6", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[14px] font-semibold text-gray-800 mb-2", children: "The settings could not be loaded." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[13px] text-gray-600 mb-4", children: "Nothing was changed. If it keeps happening, check the database with your host." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => window.location.reload(), className: "px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-bold rounded-lg", children: "Retry" })
+    ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-8 h-8 border-[3px] border-gray-200 border-t-indigo-600 rounded-full animate-spin" }) });
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: suiteMode ? "font-sans" : "min-h-screen bg-gray-50 font-sans", children: [
     !suiteMode && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-white border-b border-gray-200 shadow-sm", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "max-w-5xl px-6 py-4 flex items-center gap-3", children: [
@@ -9303,7 +9385,7 @@ function App({ suiteMode = false } = {}) {
           .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
           .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
         ` } }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-transparent", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { className: suiteMode ? "divide-y divide-gray-100" : "", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-transparent", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("form", { className: suiteMode ? "divide-y divide-gray-100" : "", onSubmit: (e) => e.preventDefault(), children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "" : "py-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { title: "Link Setup", icon: Link, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm min-h-[400px]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-8 animate-in fade-in duration-300", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-gray-100 pb-4 mb-6", children: [
@@ -9455,7 +9537,7 @@ function App({ suiteMode = false } = {}) {
                             type: "button",
                             onClick: (e) => {
                               e.stopPropagation();
-                              handleRuleChange(1, rule.id, "clicks", 0);
+                              handleResetRowClicks(rule.affiliateId, () => handleRuleChange(1, rule.id, "clicks", 0));
                             },
                             className: "text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none",
                             title: "Reset clicks",
@@ -9928,7 +10010,7 @@ function App({ suiteMode = false } = {}) {
                                   type: "button",
                                   onClick: (e) => {
                                     e.stopPropagation();
-                                    handleAutoLinkRuleChange(rule.id, "clicks", 0);
+                                    handleResetRowClicks("__rule__" + rule.id, () => handleAutoLinkRuleChange(rule.id, "clicks", 0));
                                   },
                                   className: "text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none",
                                   title: "Reset clicks",
@@ -10140,6 +10222,12 @@ function App({ suiteMode = false } = {}) {
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-b border-gray-100 pb-4 mb-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Stock & 404 Monitor" }) }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3 mb-6", children: [
+                  monitorHasMore && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2", children: "More flagged products exist than the 100 listed here. Replace or fix these first, then check again." }),
+                  replaceUnfinished.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2", children: [
+                    "An earlier replacement was interrupted before these posts were verified: ",
+                    replaceUnfinished.join(", "),
+                    ". Their original content is kept in the recovery journal (option devdaffi_replace_journal). Open and check them; they are skipped by new replacements until then."
+                  ] }),
                   [
                     { key: "ok", label: "Live", badge: "text-emerald-700 bg-emerald-50 border-emerald-200", iconColor: "text-emerald-600", hoverBtn: "text-emerald-600 hover:text-emerald-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 16, className: "stroke-[3]" }) },
                     { key: "oos", label: "Out of Stock", badge: "text-amber-700 bg-amber-50 border-amber-200", iconColor: "text-amber-600", hoverBtn: "text-amber-600 hover:text-amber-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CircleAlert, { size: 16 }), refreshable: true },
@@ -10295,7 +10383,7 @@ function App({ suiteMode = false } = {}) {
                                         "button",
                                         {
                                           type: "button",
-                                          onClick: () => handleReplace(p2.asin),
+                                          onClick: () => handleReplace(p2.asin, pages.length),
                                           disabled: replaceBusy === p2.asin || (replaceVal[p2.asin] || "").length !== 10 || (replaceVal[p2.asin] || "") === p2.asin || svcUsage && svcUsage.state === "connect",
                                           className: "inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[12px] font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed",
                                           children: replaceBusy === p2.asin ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -10397,7 +10485,7 @@ function App({ suiteMode = false } = {}) {
                   }, children: "Connect your DevDome account" }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-gray-500", children: "Live checks run on DevDome servers. Requires a DevDome account." })
                 ] }),
-                svcUsage && svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: `${svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1)} Plan`, hint: "Link checks used this month on your DevDome account.", tooltip: "The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 pt-2.5", children: [
+                svcUsage && svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: `${typeof svcUsage.usage.plan === "string" && svcUsage.usage.plan ? svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1) : "Your"} Plan`, hint: "Link checks used this month on your DevDome account.", tooltip: "The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 pt-2.5", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-sm font-bold text-gray-900", children: [
                     svcUsage.usage.used.toLocaleString(),
                     " / ",
@@ -10498,6 +10586,7 @@ function App({ suiteMode = false } = {}) {
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-3", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: () => {
+            if (!window.confirm("Remove every exclusion? They are gone once you save settings.")) return;
             setFormData((prev) => ({ ...prev, globalExclusions: [], globalExcludedTrees: [], globalExceptions: [] }));
             setExclusionSelectedItems([]);
           }, className: "flex items-center gap-1.5 text-[13px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors focus:outline-none hidden sm:flex", children: [
@@ -10771,6 +10860,8 @@ function App({ suiteMode = false } = {}) {
                   const exclusions = new Set(prev.globalExclusions || []);
                   const exceptions = new Set(prev.globalExceptions || []);
                   let rules = [...prev.btn1AffiliateRules];
+                  const hit = rules.some((r2) => (r2.ruleValues || []).some((v2) => exclusionSelectedItems.includes(v2)));
+                  if (hit && !window.confirm("Some of these targets are assigned to tag rules. Excluding them removes them from those rules (not restored when you un-exclude). Continue?")) return prev;
                   exclusionSelectedItems.forEach((val) => {
                     exclusions.add(val);
                     exceptions.delete(val);
@@ -10789,13 +10880,22 @@ function App({ suiteMode = false } = {}) {
                   const exclusions = new Set(prev.globalExclusions || []);
                   let exceptions = [...prev.globalExceptions || []];
                   let rules = [...prev.btn1AffiliateRules];
+                  const affectedAll = [];
+                  exclusionSelectedItems.forEach((val) => {
+                    var _a2;
+                    if ((_a2 = getOptionData(val)) == null ? void 0 : _a2.type.includes("Category")) {
+                      affectedAll.push(val, ...targetOptions.filter((t2) => t2.parentCategory === val).map((t2) => t2.value));
+                    }
+                  });
+                  const hitCat = rules.some((r2) => (r2.ruleValues || []).some((v2) => affectedAll.includes(v2)));
+                  if (hitCat && !window.confirm("Some of these categories (or posts in them) are assigned to tag rules. Excluding them removes them from those rules (not restored when you un-exclude). Continue?")) return prev;
                   exclusionSelectedItems.forEach((val) => {
                     var _a2;
                     if ((_a2 = getOptionData(val)) == null ? void 0 : _a2.type.includes("Category")) {
                       excludedTrees.add(val);
                       exclusions.delete(val);
                       const children = targetOptions.filter((t2) => t2.parentCategory === val).map((t2) => t2.value);
-                      exceptions = exceptions.filter((v2) => !children.includes(v2));
+                      exceptions = exceptions.filter((v2) => v2 !== val && !children.includes(v2));
                       rules = rules.map((r2) => ({ ...r2, ruleValues: (r2.ruleValues || []).filter((v2) => v2 !== val && !children.includes(v2)) }));
                     }
                   });
@@ -10908,7 +11008,7 @@ function App({ suiteMode = false } = {}) {
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4 shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-gray-100 pt-3 sm:pt-0", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-medium text-gray-400", children: "Changes saved automatically" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-medium text-gray-400", children: "Applied when you save settings" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: handleCloseModal, className: "px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm", children: "Close" })
           ] })
         ] })

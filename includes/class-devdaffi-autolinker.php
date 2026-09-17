@@ -114,11 +114,11 @@ class DEVDAFFI_Autolinker {
 
 	/** Walk tags vs text; only replace inside safe text nodes. */
 	private function linkify( $content, $skip ) {
-		$parts = preg_split( '#(<[^>]+>)#', $content, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
+		$parts = preg_split( '#(<!--.*?-->|<(?:[^>"\']|"[^"]*"|\'[^\']*\')*>)#s', $content, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY ); // a quoted '>' never ends the tag (round 2); a comment is one opaque token (round 5)
 		if ( empty( $parts ) ) {
 			return $content;
 		}
-		$depth = array( 'a' => 0, 'heading' => 0, 'code' => 0, 'pre' => 0, 'blockquote' => 0 );
+		$depth = array( 'a' => 0, 'heading' => 0, 'code' => 0, 'pre' => 0, 'blockquote' => 0, 'raw' => 0 );
 		$fp    = ! empty( $skip['first_paragraph'] ) ? 'before' : 'off'; // first-paragraph state machine
 		$out   = '';
 
@@ -144,6 +144,7 @@ class DEVDAFFI_Autolinker {
 			}
 			// Never nest anchors; honour the configured skips.
 			$blocked = $depth['a'] > 0
+				|| $depth['raw'] > 0 // script / style / textarea / title / button text is never a link (round 1)
 				|| ( $skip['headings'] && $depth['heading'] > 0 )
 				|| ( $skip['code'] && ( $depth['code'] > 0 || $depth['pre'] > 0 ) )
 				|| ( $skip['blockquotes'] && $depth['blockquote'] > 0 )
@@ -173,6 +174,8 @@ class DEVDAFFI_Autolinker {
 			$key = 'pre';
 		} elseif ( 'blockquote' === $name ) {
 			$key = 'blockquote';
+		} elseif ( in_array( $name, array( 'script', 'style', 'textarea', 'title', 'button', 'select', 'option', 'noscript', 'svg' ), true ) ) {
+			$key = 'raw';
 		}
 		if ( null === $key || $self_close ) {
 			return;
@@ -187,6 +190,12 @@ class DEVDAFFI_Autolinker {
 	/** Replace keywords in one text node, protecting inserted anchors from re-matching. */
 	private function replace_text( $text ) {
 		$placeholders = array();
+		// Character references stay whole: "&amp;" must never become "&<a>amp</a>;" (round 2).
+		$text = preg_replace_callback( '/&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/', function ( $m ) use ( &$placeholders ) {
+			$token                  = "\0" . count( $placeholders ) . "\0";
+			$placeholders[ $token ] = $m[0];
+			return $token;
+		}, $text );
 
 		foreach ( $this->rules as $idx => $rule ) {
 			if ( $this->page_count >= $this->limit ) {
@@ -203,17 +212,43 @@ class DEVDAFFI_Autolinker {
 				$pattern  = $this->pattern( $kw, $rule['match'], $rule['cs'] );
 				$url      = $this->rules[ $idx ]['url'];
 				$rid_attr = '' !== $this->rules[ $idx ]['id'] ? ' data-da-rule="' . esc_attr( $this->rules[ $idx ]['id'] ) . '"' : '';
-				$out      = preg_replace_callback(
-					$pattern,
-					function ( $m ) use ( &$placeholders, $url, $rid_attr ) {
-						$token                  = "\0" . count( $placeholders ) . "\0";
-						$placeholders[ $token ] = '<a href="' . esc_url( $url ) . '"' . $rid_attr . $this->rel_attr . '>' . esc_html( $m[0] ) . '</a>';
-						return $token;
-					},
-					$text,
-					$allowed,
-					$replaced
-				);
+				// Placeholder tokens ("\0<n>\0": protected entities and anchors already inserted) are skipped, so a
+				// keyword like "0" never matches inside one (round 3).
+				$segments = preg_split( '/(\x00\d+\x00)/', $text, -1, PREG_SPLIT_DELIM_CAPTURE );
+				$replaced = 0;
+				$out      = '';
+				if ( ! is_array( $segments ) ) {
+					$out = null;
+				} else {
+					foreach ( $segments as $seg ) {
+						if ( '' !== $seg && "\0" === $seg[0] ) {
+							$out .= $seg;
+							continue;
+						}
+						if ( $allowed - $replaced <= 0 ) {
+							$out .= $seg;
+							continue;
+						}
+						$n   = 0;
+						$rep = preg_replace_callback(
+							$pattern,
+							function ( $m ) use ( &$placeholders, $url, $rid_attr ) {
+								$token                  = "\0" . count( $placeholders ) . "\0";
+								$placeholders[ $token ] = '<a href="' . esc_url( $url ) . '"' . $rid_attr . $this->rel_attr . '>' . esc_html( $m[0] ) . '</a>';
+								return $token;
+							},
+							$seg,
+							$allowed - $replaced,
+							$n
+						);
+						if ( null === $rep ) {
+							$out = null;
+							break;
+						}
+						$out      .= $rep;
+						$replaced += (int) $n;
+					}
+				}
 				// preg_replace_callback returns null on a PCRE backtrack/recursion-limit failure;
 				// keep the original text for this keyword instead of blanking the whole node.
 				if ( null === $out ) {

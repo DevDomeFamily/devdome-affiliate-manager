@@ -49,8 +49,9 @@ class DEVDAFFI_Rewriter {
 			return $tag; // not an Amazon link — leave untouched
 		}
 
-		// Direct storefront link: set the resolved tag.
-		if ( '' !== $storefront ) {
+		// Direct storefront link: set the resolved tag, unless the anchor was built without one on purpose
+		// (a buy button with "omit the affiliate tag", round 2).
+		if ( '' !== $storefront && false === stripos( $tag, 'data-devdaffi-notag=' ) ) {
 			$aff = DEVDAFFI_Resolver::resolve( $post_id, $storefront );
 			if ( '' !== $aff ) {
 				$new_href = self::set_tag( $href, $aff );
@@ -165,13 +166,18 @@ class DEVDAFFI_Rewriter {
 		if ( ! empty( $parts['query'] ) ) {
 			parse_str( $parts['query'], $query );
 		}
-		$query['tag'] = $tag;
+		if ( '' === (string) $tag ) {
+			unset( $query['tag'] ); // an empty tag = remove the parameter (round 5)
+		} else {
+			$query['tag'] = $tag;
+		}
 
 		$scheme = $parts['scheme'] ?? 'https';
 		$port   = isset( $parts['port'] ) ? ':' . $parts['port'] : '';
 		$path   = $parts['path'] ?? '/';
 		$frag   = isset( $parts['fragment'] ) ? '#' . $parts['fragment'] : '';
-		return $scheme . '://' . $parts['host'] . $port . $path . '?' . http_build_query( $query ) . $frag;
+		$qs = http_build_query( $query );
+		return $scheme . '://' . $parts['host'] . $port . $path . ( '' !== $qs ? '?' . $qs : '' ) . $frag;
 	}
 
 	/** Apply rel (nofollow/sponsored) + optional new-tab to an <a> tag. */
