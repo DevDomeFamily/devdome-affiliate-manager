@@ -1,0 +1,27 @@
+{
+    "name": "devdome/devdome-affiliate-manager",
+    "description": "Free Amazon affiliate manager for WordPress: auto-tag Amazon Associates links for 22 marketplaces, keyword auto-linking, geo store routing, dead and out-of-stock link monitoring, click tracking. Free alternative to AAWP, Lasso and AmaLinks Pro.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://wordpress.org/plugins/devdome-affiliate-manager/",
+    "keywords": [
+        "wordpress",
+        "wordpress-plugin",
+        "affiliate-links",
+        "link-management"
+    ],
+    "authors": [
+        {
+            "name": "DevDome",
+            "homepage": "https://devdome.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/DevDomeFamily/devdome-affiliate-manager/issues",
+        "source": "https://github.com/DevDomeFamily/devdome-affiliate-manager"
+    },
+    "require": {
+        "php": ">=7.4",
+        "composer/installers": "^1.0 || ^2.0"
+    }
+}
