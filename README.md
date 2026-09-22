@@ -1,4 +1,4 @@
-# DevDome Affiliate Manager - free Amazon affiliate manager for WordPress
+# DevDome Affiliate Manager: Amazon Affiliate Links & Amazon Associates
 
 [![WordPress Plugin Version](https://img.shields.io/wordpress/plugin/v/devdome-affiliate-manager?label=wp.org)](https://wordpress.org/plugins/devdome-affiliate-manager/)
 [![Active Installs](https://img.shields.io/wordpress/plugin/installs/devdome-affiliate-manager)](https://wordpress.org/plugins/devdome-affiliate-manager/)
@@ -6,10 +6,9 @@
 [![Tested WP](https://img.shields.io/wordpress/plugin/tested/devdome-affiliate-manager)](https://wordpress.org/plugins/devdome-affiliate-manager/)
 [![License GPL-2.0+](https://img.shields.io/badge/license-GPL--2.0%2B-blue.svg)](LICENSE)
 
-**The free alternative to AAWP, Lasso, AmaLinks Pro, ThirstyAffiliates Pro and Pretty Links Pro for Amazon Associates publishers.**
-Auto-tag every Amazon link on your WordPress site with your Associates ID, one ID per Amazon marketplace (22 stores),
-send international visitors to their local Amazon store, turn keywords into affiliate links, track clicks, block bot
-clicks, and find dead or out-of-stock Amazon products before they waste your commissions.
+Amazon affiliates: auto-tag affiliate links, track Amazon clicks and add an Amazon buy button. Supports WooCommerce external product links. This free Amazon affiliate link manager helps you maintain an affiliate website, localize destinations and find unavailable products from one WordPress dashboard.
+
+The free alternative to AAWP, Lasso, AmaLinks Pro, ThirstyAffiliates Pro and Pretty Links Pro for Amazon Associates publishers, and an alternative to the free Amazon Auto Links plugin, which inserts product boxes through the PA-API rather than retagging links already in your posts.
 
 [![DevDome Affiliate Manager, free Amazon affiliate plugin for WordPress](https://ps.w.org/devdome-affiliate-manager/assets/banner-1544x500.png)](https://devdome.com)
 
@@ -19,18 +18,16 @@ clicks, and find dead or out-of-stock Amazon products before they waste your com
 
 ## Everything is free, with one metered service
 
-Every feature in the plugin is free and unlimited: auto-tagging, per-marketplace IDs, keyword auto-linker, click
-tracking, click protection, WooCommerce external product links, the mobile app opener.
+Plugin features are free and unlimited: auto-tagging, per-marketplace IDs, keyword auto-linking, click tracking, click protection, affiliate buttons, WooCommerce external product links and the mobile app opener.
 
-Two features run through the hosted DevDome service and need a free DevDome account:
+Two features use the hosted DevDome service and require a free account:
 
-- **Dead and out-of-stock link checks** (Link Radar). The free plan includes **500 checks per month**. Paid plans raise
-  that to 20,000, 50,000 or 100,000 for large sites. The plugin shows the usage meter on its settings screen.
-- **Geo store routing** (the OneLink alternative). **Free** with a connected account, no quota.
-
-Every competitor below is paid from the first feature.
+- **Link Radar checks and replacement searches:** 500 checks plus searches per month per account. Paid plans raise the limit to 20,000, 50,000 or 100,000. Settings show your live usage meter.
+- **Geo store routing** (the OneLink alternative): free with a connected account, without a quota. Routing is off by default.
 
 ## Why DevDome Affiliate Manager instead of the paid alternatives
+
+The paid editions below charge from the first feature.
 
 | | DevDome Affiliate Manager | AAWP | Lasso | AmaLinks Pro | ThirstyAffiliates Pro | Pretty Links Pro |
 |---|---|---|---|---|---|---|
@@ -45,26 +42,69 @@ Every competitor below is paid from the first feature.
 | Needs Amazon PA-API keys | No | Yes | Yes | Yes | No | No |
 | Works without any account | Yes, except link checks and geo routing | No | No | No | No | No |
 
-Prices are the vendors' single-site annual plans as published in September 2026. Amazon Auto Links is free but inserts
-product boxes through the PA-API; it does not retag the links already in your posts.
+Prices are the vendors' single-site annual plans as published in September 2026.
 
 ## Features
 
-- **Auto-tag Amazon affiliate links.** Add your Associates tag once and it is applied to every Amazon link, existing
-  and new, sitewide or per post, page and category. `rel="nofollow sponsored"` and open-in-new-tab handled.
-- **22 Amazon marketplaces.** A separate Associates ID for amazon.com, .co.uk, .de, .ca, .fr, .it, .es, .co.jp,
-  .com.au, .in and the rest.
-- **Geo store routing.** International visitors land on their local Amazon store with your tag for that store. If you
-  have no tag for the visitor's store, the original link is kept.
-- **Keyword auto-linker.** Keywords in posts, pages and products become tagged Amazon links, with per-keyword limits
-  and skip rules for headings, links, code and blockquotes.
-- **Link Radar.** Scans your content and WooCommerce external products for Amazon links, then monitors them: live,
-  out of stock, 404. Optional redirect of dead links to a replacement or an Amazon search.
-- **Click tracking** per tag and per keyword rule.
-- **Click protection.** Blocks bot clicks on affiliate links so your click data and Amazon account stay clean.
-- **Affiliate buttons** from an ASIN or custom URL.
-- **WooCommerce.** Routes external product buttons that carry an ASIN through your tagged link.
-- **Amazon mobile app opener** for iOS and Android visitors.
+### Amazon affiliate links and Amazon Associates tagging
+
+Apply your tracking IDs to existing and new Amazon outbound links without editing each post.
+
+- Tag links sitewide or set rules for posts, pages and categories.
+- Configure separate IDs for 22 marketplaces, including amazon.com, .co.uk, .de, .ca, .fr, .it, .es, .co.jp, .com.au and .in.
+- Add `rel="nofollow sponsored"` for sponsored, nofollow links.
+- Open affiliate links in a new tab.
+
+Link attributes do not write your affiliate disclosure; add that disclosure to your content separately.
+
+### Amazon affiliation and local store routing
+
+Send international visitors to their local Amazon store with your tracking ID for that marketplace. If no tag is configured for their store, the original link stays in use.
+
+Enabled geo routing uses the hosted service to look up the visitor's country from their IP address.
+
+### Keyword auto-linker and blog monetization
+
+Use keyword rules to monetize blog posts through Amazon Associates affiliate marketing. Selected words become tagged links in posts, pages and products, including older content on an affiliate blog.
+
+- Exact or flexible matching.
+- Per-keyword, per-page link limits.
+- Skip existing links, headings, code and blockquotes.
+
+These tools support publishers who want to make money blogging; they do not guarantee earnings.
+
+### Amazon link checker and dead-product recovery
+
+Link Radar scans content and WooCommerce external products for Amazon links. Run checks manually or enable scheduled monitoring, which is off by default.
+
+- Classify destinations as live, out of stock or 404 / unavailable.
+- Optionally route affected clicks to a replacement product or Amazon search.
+- Keep the original destination when that is your preferred recovery setting.
+- Use bulk Replace ASIN to update broken products from the dashboard.
+
+### Affiliate link tracking and click protection
+
+The `/go` endpoint provides affiliate tracking with total and unique clicks, link performance and Amazon product activity. View clicks per tag and keyword rule.
+
+An Amazon shortlink, such as amzn.to or a.co, is resolved before its destination is validated and tagged. Unique-click statistics use a temporary hash of IP address and browser user agent for 30 minutes; raw values are not stored in click statistics.
+
+Click Protection blocks and counts known bot clicks using a built-in list, keeping automated traffic out of your affiliate click statistics.
+
+### Amazon buy button and WooCommerce affiliate products
+
+Create affiliate buttons from an ASIN or custom Amazon URL using `[devdaffi_button]`. Choose the marketplace through **Button Link > Edit / Regenerate**, optionally omit the tag, or use an `{ASIN}` placeholder in custom links.
+
+For an affiliate store, WooCommerce affiliate support covers external products linked to Amazon. Product buttons carrying an ASIN route through your tagged link, and Link Radar scans their destinations.
+
+### Amazon mobile app opener
+
+Help mobile visitors open supported product links in the Amazon app. Android supports the app intent; supported iOS in-app browsers can offer **Open in Safari**.
+
+### AI agents and MCP
+
+On WordPress 6.9+, compatible agents and MCP clients can use 16 WordPress Abilities when exposed through an adapter. They cover settings, tags, keyword rules, Link Radar scans and checks, ASIN replacement, quotas and click statistics.
+
+Abilities use the same administrator permissions as the plugin screen. Destructive actions and specified sensitive setting changes require confirmation.
 
 ## Screenshots
 
@@ -85,7 +125,7 @@ product boxes through the PA-API; it does not retag the links already in your po
 
 ## Requirements
 
-WordPress 6.0+, PHP 7.4+. No Amazon PA-API keys needed.
+WordPress 6.0+, PHP 7.4+. No Amazon API keys, including PA-API keys, needed.
 
 ## Installation
 
@@ -95,14 +135,13 @@ WordPress 6.0+, PHP 7.4+. No Amazon PA-API keys needed.
 
 ## Part of the DevDome plugin family
 
-Free WordPress plugins by [DevDome](https://devdome.com): Analytics (cookieless, bot and AI crawler split, public
-API and MCP server), Redirect Manager, Media Cleaner, Link Monitor, Affiliate Manager. Every plugin ships with the
-DevDome Dashboard inside wp-admin, so the others install in one click.
+Free WordPress plugins by [DevDome](https://devdome.com): Analytics (cookieless, bot and AI crawler split, public API and MCP server), Redirect Manager, Media Cleaner, Link Monitor, Affiliate Manager.
+
+Every plugin ships with the DevDome Dashboard inside wp-admin, so the others install in one click.
 
 ## Development
 
-This repository mirrors the release published on WordPress.org. Bug reports and feature requests: open an issue here
-or use the [support forum](https://wordpress.org/support/plugin/devdome-affiliate-manager/).
+This repository mirrors the release published on WordPress.org. Bug reports and feature requests: open an issue here or use the [support forum](https://wordpress.org/support/plugin/devdome-affiliate-manager/).
 
 ## License
 
