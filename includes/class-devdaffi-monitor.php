@@ -25,6 +25,7 @@ class DEVDAFFI_Monitor {
 	public function __construct() {
 		// Piggyback the scanner's daily cron to check a batch automatically.
 		add_action( DEVDAFFI_Scanner::CRON_HOOK, array( __CLASS__, 'cron_batch' ) );
+		add_action( self::JOB_HOOK, array( __CLASS__, 'job_cron' ) ); // Check Now run: server-side ticks
 	}
 
 	public static function table() {
@@ -201,6 +202,425 @@ class DEVDAFFI_Monitor {
 			return;
 		}
 		self::check_batch( self::BATCH );
+	}
+
+
+	/* ------------------------------------------------------------------ Check Now run (job) ------------------------------------------------------------------
+	 * One run checks every scanned product once, in batches of BATCH, like the Link Monitor / Safe Media Cleaner jobs:
+	 *  - state = option devdaffi_check_job (not autoloaded), every read uncached, every write a compare-and-swap on the
+	 *    stored value, so a tick that spent seconds on the service call can never overwrite a Pause / Cancel / newer run;
+	 *  - one tick at a time: an atomic INSERT IGNORE lock with an owner token, released only by its owner, stale after 2 min;
+	 *  - continuation with no page open: a WP-Cron single event + a fire-and-forget loopback POST to our own tick route,
+	 *    armed at shutdown after every batch (the SMC 1.0.6 pattern), so the chain carries on with no visitor and no tab.
+	 */
+	const JOB_OPTION = 'devdaffi_check_job';
+	const JOB_HOOK   = 'devdaffi_check_tick';
+	const JOB_LOCK   = 'devdaffi_check_tick_lock';
+	const JOB_KEY    = 'devdaffi_check_tick_key';
+	const RUN_BATCH  = 5; // small batches so the progress row moves every few seconds (the hourly auto check keeps BATCH)
+
+	/** The stored job, array() when none. Always from the database: another request may have changed it a moment ago. */
+	public static function job_get() {
+		wp_cache_delete( self::JOB_OPTION, 'options' );
+		wp_cache_delete( 'notoptions', 'options' ); // a miss earlier in this request would otherwise hide a row inserted since
+		$j = get_option( self::JOB_OPTION, array() );
+		return is_array( $j ) ? $j : array();
+	}
+
+	/** Compare-and-swap: the row is rewritten only while it still holds $old. @return bool */
+	private static function job_cas( array $old, array $new ) {
+		global $wpdb;
+		$new['updated'] = time();
+		$rows = $wpdb->query( $wpdb->prepare(
+			"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+			maybe_serialize( $new ),
+			self::JOB_OPTION,
+			maybe_serialize( $old )
+		) );
+		wp_cache_delete( self::JOB_OPTION, 'options' );
+		return 1 === (int) $rows;
+	}
+
+	/** Create the job row only when none exists (atomic). @return bool */
+	private static function job_insert( array $new ) {
+		global $wpdb;
+		$new['updated'] = time();
+		$rows = $wpdb->query( $wpdb->prepare(
+			"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')",
+			self::JOB_OPTION,
+			maybe_serialize( $new )
+		) );
+		wp_cache_delete( self::JOB_OPTION, 'options' );
+		return 1 === (int) $rows;
+	}
+
+	/** Delete the job row only while it still holds $old. @return bool */
+	private static function job_delete_if( array $old ) {
+		global $wpdb;
+		$rows = $wpdb->query( $wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
+			self::JOB_OPTION,
+			maybe_serialize( $old )
+		) );
+		wp_cache_delete( self::JOB_OPTION, 'options' );
+		return 1 === (int) $rows;
+	}
+
+	/**
+	 * Apply $mutate to the CURRENT job of run $run_id (fresh read, CAS write, three tries). The callback edits by
+	 * reference; when the run is gone or replaced nothing is written. @return bool written (or nothing to change)
+	 */
+	private static function job_update( $run_id, $mutate ) {
+		for ( $try = 0; $try < 3; $try++ ) {
+			$fresh = self::job_get();
+			if ( empty( $fresh ) || ! isset( $fresh['id'] ) || (string) $fresh['id'] !== (string) $run_id ) {
+				return false;
+			}
+			$new = $fresh;
+			$mutate( $new );
+			if ( $new == $fresh ) { // phpcs:ignore Universal.Operators.StrictComparisons.LooseEqual -- array content
+				return true;
+			}
+			if ( self::job_cas( $fresh, $new ) ) {
+				return true;
+			}
+			usleep( 50000 );
+		}
+		return false;
+	}
+
+	/* ---- tick lock: INSERT IGNORE = atomic test-and-set; value "time|token"; stale after 2 minutes; owner-only release ---- */
+
+	private static function lock_acquire() {
+		global $wpdb;
+		$mine = time() . '|' . str_replace( '.', '', uniqid( '', true ) );
+		$held = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::JOB_LOCK ) );
+		if ( null !== $held && time() - (int) $held > 2 * MINUTE_IN_SECONDS ) {
+			// a tick that died: only the caller that still sees exactly this value removes it
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", self::JOB_LOCK, (string) $held ) );
+		}
+		$rows = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", self::JOB_LOCK, $mine ) );
+		wp_cache_delete( self::JOB_LOCK, 'options' );
+		if ( 1 !== (int) $rows ) {
+			return '';
+		}
+		$now = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::JOB_LOCK ) );
+		return $now === $mine ? $mine : '';
+	}
+
+	private static function lock_release( $mine ) {
+		global $wpdb;
+		if ( '' === $mine ) {
+			return;
+		}
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", self::JOB_LOCK, $mine ) );
+		wp_cache_delete( self::JOB_LOCK, 'options' );
+	}
+
+	/** Is a fresh lock held by someone right now (uncached)? */
+	public static function lock_held() {
+		global $wpdb;
+		$held = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::JOB_LOCK ) );
+		return null !== $held && time() - (int) $held <= 2 * MINUTE_IN_SECONDS;
+	}
+
+	/* ---- continuation: cron event + loopback POST at shutdown (SMC 1.0.6 pattern) ---- */
+
+	/** Internal key that lets the loopback request call the tick route without a user session. */
+	public static function tick_key() {
+		$key = get_option( self::JOB_KEY, '' );
+		if ( ! is_string( $key ) || strlen( $key ) < 32 ) {
+			$key = wp_generate_password( 48, false );
+			update_option( self::JOB_KEY, $key, false );
+		}
+		return $key;
+	}
+
+	public static function job_running() {
+		$j = self::job_get();
+		return isset( $j['status'] ) && 'running' === $j['status'];
+	}
+
+	/** Arm the next server-side tick: a cron event as the safety net, a loopback POST at shutdown as the driver. */
+	public static function job_kick() {
+		if ( ! wp_next_scheduled( self::JOB_HOOK ) ) {
+			wp_schedule_single_event( time() + 1, self::JOB_HOOK );
+		}
+		static $armed = false;
+		if ( $armed || ! function_exists( 'rest_url' ) ) {
+			return;
+		}
+		$armed = true;
+		register_shutdown_function( array( __CLASS__, 'job_spawn_now' ) );
+	}
+
+	/** The loopback POST itself: once per request, only while a run is still going. Nobody waits for its answer. */
+	public static function job_spawn_now() {
+		static $sent = false;
+		if ( $sent ) {
+			return;
+		}
+		$sent = true;
+		if ( ! self::job_running() ) {
+			return;
+		}
+		wp_remote_post( rest_url( 'devdaffi/v1/check-tick' ), array(
+			'timeout'   => 1, // behind a TLS proxy a 10 ms timeout aborts in the handshake; the route answers at once anyway
+			'blocking'  => false,
+			'sslverify' => false, // our own site; a self-signed or proxy certificate must not stop the runner
+			'headers'   => array( 'X-DevdAffi-Tick' => self::tick_key() ),
+			'body'      => '',
+		) );
+	}
+
+	/** WP-Cron: one batch, then re-arm while the run is still going. */
+	public static function job_cron() {
+		self::job_tick();
+		if ( self::job_running() ) {
+			self::job_kick();
+		}
+	}
+
+	/** The loopback runner: wait a little for the current holder (the open page ticks too), run one tick, arm the next. */
+	public static function job_internal_tick() {
+		$deadline = time() + 10; // not a minute: a worker waiting on the page's lock is a worker the site cannot use
+		while ( time() < $deadline ) {
+			if ( ! self::job_running() ) {
+				return;
+			}
+			if ( self::lock_held() ) {
+				sleep( 1 );
+				continue;
+			}
+			self::job_tick();
+			break;
+		}
+		if ( self::job_running() ) {
+			self::job_kick();
+		}
+	}
+
+	/** Start a run over every scanned product. @return array|WP_Error progress */
+	public static function job_start() {
+		$sum = self::get_summary();
+		if ( ! empty( $sum['error'] ) ) {
+			return new WP_Error( 'devdaffi_db_error', __( 'The check could not start: the database read failed. Nothing was changed.', 'devdome-affiliate-manager' ), array( 'status' => 500 ) );
+		}
+		if ( (int) $sum['total'] < 1 ) {
+			return new WP_Error( 'devdaffi_nothing_to_check', __( 'Nothing to check yet: scan the site for Amazon links first.', 'devdome-affiliate-manager' ), array( 'status' => 400 ) );
+		}
+		$j = array(
+			'id'      => str_replace( '.', '', uniqid( 'run', true ) ),
+			'status'  => 'running',
+			'total'   => (int) $sum['total'],
+			'done'    => 0,
+			'skipped' => array(),
+			'empty'   => 0,
+			'batches' => 0,
+			'reason'  => '',
+			'started' => gmdate( 'Y-m-d H:i:s', time() - 1 ), // one second early: a product checked in this very second still belongs to the run
+		);
+		$ok = false;
+		for ( $try = 0; $try < 3 && ! $ok; $try++ ) {
+			$cur = self::job_get();
+			if ( isset( $cur['status'] ) && in_array( $cur['status'], array( 'running', 'paused' ), true ) ) {
+				return new WP_Error( 'devdaffi_check_running', __( 'A check is already running. Pause or cancel it first.', 'devdome-affiliate-manager' ), array( 'status' => 409 ) );
+			}
+			$ok = empty( $cur ) ? self::job_insert( $j ) : self::job_cas( $cur, $j );
+		}
+		if ( ! $ok ) {
+			return new WP_Error( 'devdaffi_db_error', __( 'The check could not start: the run state could not be saved.', 'devdome-affiliate-manager' ), array( 'status' => 500 ) );
+		}
+		self::job_kick();
+		return self::job_progress();
+	}
+
+	/** pause | resume | cancel | dismiss, each a compare-and-swap on the current row. @return array|WP_Error progress */
+	public static function job_control( $action ) {
+		for ( $try = 0; $try < 3; $try++ ) {
+			$j = self::job_get();
+			$s = isset( $j['status'] ) ? (string) $j['status'] : '';
+			$n = $j;
+			if ( 'pause' === $action && 'running' === $s ) {
+				$n['status'] = 'paused';
+			} elseif ( 'resume' === $action && 'paused' === $s ) {
+				$n['status'] = 'running';
+			} elseif ( 'cancel' === $action && in_array( $s, array( 'running', 'paused' ), true ) ) {
+				$n['status'] = 'cancelled';
+			} elseif ( 'dismiss' === $action && in_array( $s, array( 'done', 'stopped', 'cancelled' ), true ) ) {
+				$n = array();
+			} elseif ( 'dismiss' === $action && '' === $s ) {
+				return self::job_progress(); // nothing to dismiss
+			} else {
+				return new WP_Error( 'devdaffi_check_state', __( 'That action does not apply to the current check.', 'devdome-affiliate-manager' ), array( 'status' => 409 ) );
+			}
+			$ok = $n ? self::job_cas( $j, $n ) : self::job_delete_if( $j );
+			if ( $ok ) {
+				if ( 'resume' === $action ) {
+					self::job_kick();
+				}
+				return self::job_progress();
+			}
+			usleep( 50000 ); // the row moved under us (a tick landed): read again
+		}
+		return new WP_Error( 'devdaffi_db_error', __( 'The change could not be saved to the database.', 'devdome-affiliate-manager' ), array( 'status' => 500 ) );
+	}
+
+	/** One batch of the run (page, cron or loopback). Serialized by the owner lock; state changes are CAS on the fresh row. @return array progress */
+	public static function job_tick() {
+		$j = self::job_get();
+		if ( ! isset( $j['status'], $j['id'] ) || 'running' !== $j['status'] ) {
+			return self::job_progress();
+		}
+		$token = self::lock_acquire();
+		if ( '' === $token ) {
+			return self::job_progress(); // another tick is on it
+		}
+		// Re-read under the lock: a pause / cancel / new run committed between the first read and the lock must win here,
+		// before any service call is made (Codex round 3).
+		$j = self::job_get();
+		if ( ! isset( $j['status'], $j['id'] ) || 'running' !== $j['status'] ) {
+			self::lock_release( $token );
+			return self::job_progress();
+		}
+		$run = (string) $j['id'];
+		try {
+			global $wpdb;
+			$index   = DEVDAFFI_Scanner::table();
+			$status  = self::table();
+			$skipped = array_values( array_filter( array_map( 'strval', (array) $j['skipped'] ) ) );
+			$sql     = "SELECT i.asin, MIN(i.domain) AS domain
+				 FROM (SELECT DISTINCT asin, domain FROM $index) i
+				 LEFT JOIN $status s ON s.asin = i.asin
+				 WHERE (s.last_checked IS NULL OR s.last_checked < %s)";
+			$args    = array( (string) $j['started'] );
+			if ( $skipped ) {
+				$sql   .= ' AND i.asin NOT IN (' . implode( ',', array_fill( 0, count( $skipped ), '%s' ) ) . ')';
+				$args   = array_merge( $args, $skipped );
+			}
+			$sql   .= ' GROUP BY i.asin ORDER BY (MAX(s.last_checked) IS NOT NULL), MAX(s.last_checked) ASC LIMIT %d';
+			$args[] = self::RUN_BATCH;
+			devdaffi_db_reset_error();
+			$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- built above with placeholders only
+			if ( devdaffi_db_failed() || null === $rows ) {
+				self::job_update( $run, function ( &$f ) {
+					if ( 'running' === $f['status'] ) {
+						$f['status'] = 'stopped';
+						$f['reason'] = 'db';
+					}
+				} );
+				return self::job_progress();
+			}
+			if ( empty( $rows ) ) {
+				self::job_update( $run, function ( &$f ) {
+					if ( 'running' === $f['status'] ) {
+						$f['status'] = 'done';
+						$f['total']  = (int) $f['done'] + count( (array) $f['skipped'] ); // what this run visited; products checked by another path since the start are not counted twice
+					}
+				} );
+				return self::job_progress();
+			}
+			$items = array();
+			foreach ( $rows as $r ) {
+				$domain  = preg_replace( '/[^a-z0-9.]/', '', strtolower( (string) $r['domain'] ) );
+				$items[] = array( 'asin' => $r['asin'], 'domain' => $domain ? $domain : 'amazon.com' );
+			}
+			$res = self::check_via_server( $items ); // seconds: whatever happened to the run meanwhile wins below
+			$n   = is_array( $res ) ? self::store_results( $rows, $res ) : 0; // the answers are real, they are kept whatever the run's fate
+			$no_answer = array();
+			foreach ( $rows as $r ) {
+				if ( ! is_array( $res ) || ! isset( $res[ $r['asin'] ] ) ) {
+					$no_answer[] = (string) $r['asin'];
+				}
+			}
+			$svc = (string) get_option( 'devdaffi_svc_state', 'unavailable' );
+			self::job_update( $run, function ( &$f ) use ( $res, $n, $no_answer, $svc ) {
+				++$f['batches'];
+				if ( null === $res ) {
+					// connect / quota / unavailable: the run stops where it is, unless it was paused or cancelled meanwhile
+					if ( 'running' === $f['status'] ) {
+						$f['status'] = 'stopped';
+						$f['reason'] = $svc;
+					}
+					return;
+				}
+				$f['done']    = min( (int) $f['total'], (int) $f['done'] + $n );
+				$f['skipped'] = array_values( array_unique( array_merge( (array) $f['skipped'], $no_answer ) ) ); // not retried in this run
+				$f['empty']   = $n > 0 ? 0 : (int) $f['empty'] + 1;
+				if ( $f['empty'] >= 3 && 'running' === $f['status'] ) {
+					$f['status'] = 'stopped'; // three batches in a row without a usable answer: the service is not answering
+					$f['reason'] = 'unavailable';
+				}
+			} );
+			return self::job_progress();
+		} finally {
+			self::lock_release( $token );
+		}
+	}
+
+	/** The screen's snapshot of the run + the monitor rows it changes. */
+	public static function job_progress() {
+		$j       = self::job_get();
+		$status  = isset( $j['status'] ) ? (string) $j['status'] : '';
+		$total   = isset( $j['total'] ) ? (int) $j['total'] : 0;
+		$done    = isset( $j['done'] ) ? (int) $j['done'] : 0;
+		$skipped = isset( $j['skipped'] ) ? count( (array) $j['skipped'] ) : 0;
+		$reason  = isset( $j['reason'] ) ? (string) $j['reason'] : '';
+		$pct     = $total > 0 ? (int) min( 100, floor( ( $done + $skipped ) * 100 / $total ) ) : 0;
+		$reasons = array(
+			'connect'     => __( 'Stopped: connect this site to a DevDome account first.', 'devdome-affiliate-manager' ),
+			'quota'       => __( 'Stopped: the monthly Link Radar quota of your account is used up.', 'devdome-affiliate-manager' ),
+			'unavailable' => __( 'Stopped: DevDome did not answer. Try again later.', 'devdome-affiliate-manager' ),
+			'db'          => __( 'Stopped: the database did not answer. Nothing was changed.', 'devdome-affiliate-manager' ),
+		);
+		switch ( $status ) {
+			case 'running':
+				/* translators: 1: products checked so far, 2: products in the run. */
+				$message = sprintf( __( 'Checking products: %1$d of %2$d', 'devdome-affiliate-manager' ), $done, $total );
+				break;
+			case 'paused':
+				$message = __( 'Paused', 'devdome-affiliate-manager' );
+				break;
+			case 'done':
+				/* translators: %d: products checked. */
+				$message = sprintf( __( 'Completed: %d products checked', 'devdome-affiliate-manager' ), $done );
+				if ( 'done' === $status && $skipped > 0 ) {
+					/* translators: %d: products the service gave no answer for. */
+					$message .= ' ' . sprintf( __( '(%d without an answer, try again later)', 'devdome-affiliate-manager' ), $skipped );
+				}
+				break;
+			case 'stopped':
+				$message = isset( $reasons[ $reason ] ) ? $reasons[ $reason ] : $reasons['unavailable'];
+				break;
+			case 'cancelled':
+				$message = __( 'Cancelled', 'devdome-affiliate-manager' );
+				break;
+			default:
+				$message = '';
+		}
+		$p = self::get_problems( 100 );
+		return array(
+			'status'        => $status,
+			'active'        => in_array( $status, array( 'running', 'paused' ), true ),
+			'total'         => $total,
+			'done'          => $done,
+			'skipped'       => $skipped,
+			'pct'           => $pct,
+			'message'       => $message,
+			'reason'        => $reason,
+			'summary'       => self::get_summary(),
+			'problems'      => $p['items'],
+			'has_more'      => $p['has_more'],
+			'service_state' => (string) get_option( 'devdaffi_svc_state', '' ),
+			'usage'         => self::usage_snapshot(), // the meter follows every batch, not the next page load
+		);
+	}
+
+	/** The last usage figures the service sent with a batch (plan, limit, used, remaining), null before the first. */
+	public static function usage_snapshot() {
+		wp_cache_delete( 'devdaffi_usage', 'options' );
+		$u = get_option( 'devdaffi_usage', null );
+		return is_array( $u ) && isset( $u['limit'], $u['used'] ) ? $u : null;
 	}
 
 	/** @return array{total:int,checked:int,ok:int,oos:int,dead:int,unknown:int,unchecked:int} */

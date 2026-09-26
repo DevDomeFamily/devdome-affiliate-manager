@@ -65,6 +65,31 @@ class DEVDAFFI_Rest {
 			),
 		) );
 
+		// Check Now run (Link Monitor job pattern): start / progress / tick / control.
+		register_rest_route( 'devdaffi/v1', '/check-start', array(
+			'methods'             => 'POST',
+			'callback'            => devdaffi_rest_guarded( array( $this, 'check_start' ) ),
+			'permission_callback' => array( $this, 'can_manage' ),
+		) );
+		register_rest_route( 'devdaffi/v1', '/check-progress', array(
+			'methods'             => 'GET',
+			'callback'            => devdaffi_rest_guarded( array( $this, 'check_progress' ) ),
+			'permission_callback' => array( $this, 'can_manage' ),
+		) );
+		register_rest_route( 'devdaffi/v1', '/check-tick', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'check_tick' ), // the loopback path answers 202 and detaches; the guard wraps the page path inside
+			'permission_callback' => array( $this, 'can_tick' ),
+		) );
+		register_rest_route( 'devdaffi/v1', '/check-control', array(
+			'methods'             => 'POST',
+			'callback'            => devdaffi_rest_guarded( array( $this, 'check_control' ) ),
+			'permission_callback' => array( $this, 'can_manage' ),
+			'args'                => array(
+				'action' => array( 'required' => true, 'type' => 'string', 'enum' => array( 'pause', 'resume', 'cancel', 'dismiss' ) ),
+			),
+		) );
+
 		register_rest_route( 'devdaffi/v1', '/monitor/by-status', array(
 			'methods'             => 'GET',
 			'callback'            => devdaffi_rest_guarded( array( $this, 'get_monitor_by_status' ) ),
@@ -172,6 +197,57 @@ class DEVDAFFI_Rest {
 			'problems' => $p['items'],
 			'has_more' => $p['has_more'],
 		) );
+	}
+
+	public function check_start( WP_REST_Request $req ) {
+		$r = DEVDAFFI_Monitor::job_start();
+		return is_wp_error( $r ) ? $r : devdaffi_rest_success( $r );
+	}
+
+	public function check_progress( WP_REST_Request $req ) {
+		return devdaffi_rest_success( DEVDAFFI_Monitor::job_progress() );
+	}
+
+	/** The loopback request carries the internal key; anyone else needs manage_options. */
+	public static function is_internal_tick() {
+		$hdr = isset( $_SERVER['HTTP_X_DEVDAFFI_TICK'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_DEVDAFFI_TICK'] ) ) : '';
+		return '' !== $hdr && hash_equals( DEVDAFFI_Monitor::tick_key(), $hdr );
+	}
+
+	public function can_tick( WP_REST_Request $req ) {
+		return self::is_internal_tick() ? true : $this->can_manage( $req );
+	}
+
+	/**
+	 * POST /check-tick. From the screen: one batch, fresh progress back (guarded). From the loopback: nobody waits for
+	 * the answer, so reply 202 at once, keep working after the caller hangs up, run one tick and arm the next one.
+	 */
+	public function check_tick( WP_REST_Request $req ) {
+		if ( ! self::is_internal_tick() ) {
+			$guarded = devdaffi_rest_guarded( function () {
+				return devdaffi_rest_success( DEVDAFFI_Monitor::job_tick() ); // the loopback chain armed at start / resume keeps running beside the page
+			} );
+			return $guarded( $req );
+		}
+		ignore_user_abort( true );
+		$detached = false;
+		if ( function_exists( 'fastcgi_finish_request' ) && ! headers_sent() ) {
+			status_header( 202 );
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode( array( 'accepted' => true ) );
+			fastcgi_finish_request();
+			$detached = true;
+		}
+		DEVDAFFI_Monitor::job_internal_tick();
+		if ( $detached ) {
+			exit;
+		}
+		return rest_ensure_response( array( 'accepted' => true ) );
+	}
+
+	public function check_control( WP_REST_Request $req ) {
+		$r = DEVDAFFI_Monitor::job_control( sanitize_key( (string) $req->get_param( 'action' ) ) );
+		return is_wp_error( $r ) ? $r : devdaffi_rest_success( $r );
 	}
 
 	public function get_monitor_by_status( WP_REST_Request $req ) {

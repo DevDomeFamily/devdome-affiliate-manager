@@ -238,6 +238,9 @@ function devdaffi_ability_needs_confirm( array $leaves, array $now ) {
 	if ( isset( $leaves['click_protection.block_bots'] ) && ! $leaves['click_protection.block_bots'] && ! empty( $now['click_protection']['block_bots'] ) ) {
 		$why[] = 'click_protection.block_bots off (known bots are no longer blocked on /go)';
 	}
+	if ( isset( $leaves['click_protection.block_old_browsers'] ) && ! $leaves['click_protection.block_old_browsers'] && ! empty( $now['click_protection']['block_old_browsers'] ) ) {
+		$why[] = 'click_protection.block_old_browsers off (outdated desktop browsers are no longer blocked on /go)';
+	}
 	// Replacement requests (title keywords sent to api.devdome.com at click time) become active when a status is
 	// redirected AND its mode is "replacement": a toggle, a mode change, or both (round 3: the mode alone slipped through).
 	$after = $now;
@@ -804,7 +807,7 @@ function devdaffi_register_abilities() {
 		'scan_frequency_unit' => array( 'type' => 'string', 'enum' => array( 'hours', 'days' ) ),
 		'monitor'             => array( 'type' => 'object', 'properties' => array( 'oos_to_search' => $bool( 'Send clicks on out-of-stock products elsewhere.' ), 'dead_to_search' => $bool( 'Send clicks on dead (404) products elsewhere.' ), 'oos_mode' => array( 'type' => 'string', 'enum' => array( 'search', 'replacement' ) ), 'dead_mode' => array( 'type' => 'string', 'enum' => array( 'search', 'replacement' ) ) ) ),
 		'mobile_app'          => array( 'type' => 'object', 'properties' => array( 'enabled' => $bool( '' ), 'ios_safari_button' => $bool( '' ), 'android_mode' => array( 'type' => 'string', 'enum' => array( 'browser', 'intent' ) ) ) ),
-		'click_protection'    => array( 'type' => 'object', 'properties' => array( 'block_bots' => $bool( 'Block known bots on /go; turning it off needs confirm: true.' ), 'redirect_method' => array( 'type' => 'string', 'enum' => array( 'js_302', 'js', '302' ) ) ) ),
+		'click_protection'    => array( 'type' => 'object', 'properties' => array( 'block_bots' => $bool( 'Block known bots on /go; turning it off needs confirm: true.' ), 'block_old_browsers' => $bool( 'Also treat desktop Chrome, Edge or Firefox that are years behind (below 125; 109 and 115 ESR stay allowed; phones never judged) as bots on /go. Only applies while block_bots is on; turning it off needs confirm: true.' ), 'redirect_method' => array( 'type' => 'string', 'enum' => array( 'js_302', 'js', '302' ) ) ) ),
 	);
 	$settings_out = array( 'type' => 'object', 'properties' => $settings_props );
 	$summary_out  = array( 'type' => 'object', 'properties' => array( 'total' => $int(), 'checked' => $int(), 'ok' => $int(), 'oos' => $int(), 'dead' => $int(), 'unknown' => $int(), 'unchecked' => $int() ) );

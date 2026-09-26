@@ -955,6 +955,7 @@ export default function App({ suiteMode = false } = {}) {
     btn1SkipTag: false,
     btn1FollowMode: 'nofollow',
     btn1OpenInNewTab: true,
+    wooButtonRewrite: false,
     btn1Sponsored: true,
     btn1AffiliateRules: [],
     globalExclusions: [],
@@ -965,6 +966,7 @@ export default function App({ suiteMode = false } = {}) {
     androidMode: 'browser',
     iosOpenInSafari: false,
     blockBots: true,
+    blockOldBrowsers: false,
     redirectMethod: 'js_302',
     scanFrequency: '7',
     scanFrequencyUnit: 'days',
@@ -1019,6 +1021,9 @@ export default function App({ suiteMode = false } = {}) {
   const [monitorHasMore, setMonitorHasMore] = useState(false); // round 3: the lists hold the first 100 flagged products
   const [replaceUnfinished, setReplaceUnfinished] = useState([]); // round 4: posts an interrupted replacement left unverified
   const [monitorState, setMonitorState] = useState('idle'); // idle | checking
+  const [checkJob, setCheckJob] = useState(null); // Check Now run snapshot from /check-progress (null = no run to show)
+  const checkLoopRef = useRef(false);
+  const mountedRef = useRef(true); // late responses after unmount must not restart the loop
   const [monitorRefresh, setMonitorRefresh] = useState(null); // 'oos' | 'dead' | null — which status is re-checking
   const [expandedProblems, setExpandedProblems] = useState({}); // asin → bool, expandable problem rows
   const [listOpen, setListOpen] = useState(() => {
@@ -1079,6 +1084,7 @@ export default function App({ suiteMode = false } = {}) {
         const exc = backendToExclusions(data.exclusions || {});
         const b = data.button || {};
         const clicksMap = data.clicks || {};
+        const visitorsMap = data.visitors || {}; // unique visitors per tag / rule (one per visitor per 30 minutes)
         const al = data.auto_linker || {};
         const ap = al.apply || {};
         const sk = al.skip || {};
@@ -1102,9 +1108,11 @@ export default function App({ suiteMode = false } = {}) {
                 enabled: t.enabled !== false,
                 nickname: t.nickname || '', ruleValues: rulesToRuleValues(t.rules),
                 clicks: clicksMap[t.affiliate_id] || 0,
+                visitors: visitorsMap[t.affiliate_id] || 0,
               }))
             : prev.btn1AffiliateRules,
           geoEnabled: !!data.geo_enabled,
+          wooButtonRewrite: !!data.woo_button_rewrite,
           btn1FollowMode: lo.rel === 'follow' ? 'follow' : 'nofollow',
           btn1OpenInNewTab: !!lo.new_tab,
           btn1Sponsored: 'sponsored' in lo ? !!lo.sponsored : prev.btn1Sponsored,
@@ -1132,6 +1140,7 @@ export default function App({ suiteMode = false } = {}) {
           iosOpenInSafari: ma.ios_safari_button !== false,
           androidMode: ma.android_mode === 'intent' ? 'intent' : 'browser',
           blockBots: cp.block_bots !== false,
+          blockOldBrowsers: cp.block_old_browsers === true,
           redirectMethod: ['js_302', 'js', '302'].includes(cp.redirect_method) ? cp.redirect_method : 'js_302',
           autoLinkerRules: Array.isArray(al.rules)
             ? al.rules.map((r, i) => ({
@@ -1145,7 +1154,7 @@ export default function App({ suiteMode = false } = {}) {
                 maxLinks: r.max_links ? String(r.max_links) : '',
                 firstMatchOnly: !!r.first_match_only,
                 enabled: r.enabled !== false,
-                clicks: clicksMap['__rule__' + (r.id || '')] || 0, isBroken: false,
+                clicks: clicksMap['__rule__' + (r.id || '')] || 0, visitors: visitorsMap['__rule__' + (r.id || '')] || 0, isBroken: false,
               }))
             : prev.autoLinkerRules,
         }));
@@ -1184,6 +1193,11 @@ export default function App({ suiteMode = false } = {}) {
       .then(r => r.json().then(d => ({ ok: r.ok, d })))
       .then(({ ok, d }) => { if (ok && d && d.state) setSvcUsage(d); else setSvcUsage({ connected: false, usage: null, state: 'unavailable' }); }) // round 5
       .catch(() => setSvcUsage({ connected: false, usage: null, state: 'unavailable' }));
+    // A Check Now run that is going on (or paused / stopped while the page was away) shows up again and keeps ticking.
+    fetch(cfg.rest + 'check-progress', { headers })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (!mountedRef.current) return; if (ok && d && d.status) { applyCheckProgress(d); if (d.status === 'running') checkLoop(); } })
+      .catch(() => {});
   }, []);
 
   const handleSave = useCallback(() => {
@@ -1210,6 +1224,7 @@ export default function App({ suiteMode = false } = {}) {
       },
       default_tag: savedDefaultTag.current,
       geo_enabled: !!formData.geoEnabled,
+      woo_button_rewrite: !!formData.wooButtonRewrite,
       exclusions: exclusionsToBackend(formData.globalExclusions, formData.globalExcludedTrees, formData.globalExceptions),
       button: {
         text: formData.btn1Text,
@@ -1262,6 +1277,7 @@ export default function App({ suiteMode = false } = {}) {
       },
       click_protection: {
         block_bots: !!formData.blockBots,
+        block_old_browsers: !!formData.blockOldBrowsers,
         redirect_method: ['js_302', 'js', '302'].includes(formData.redirectMethod) ? formData.redirectMethod : 'js_302',
       },
     };
@@ -1286,7 +1302,7 @@ export default function App({ suiteMode = false } = {}) {
   // --- Auto-linker rules: import / export (JSON, client-side) ---
   const autoLinkerImportRef = useRef(null);
   const handleExportRules = useCallback(() => {
-    const data = formData.autoLinkerRules.map(({ id, clicks, isBroken, ...r }) => r);
+    const data = formData.autoLinkerRules.map(({ id, clicks, visitors, isBroken, ...r }) => r);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1307,7 +1323,7 @@ export default function App({ suiteMode = false } = {}) {
           nickname: r.nickname || '', keywords: r.keywords || '', link: r.link || '',
           tag: r.tag || '', matchType: r.matchType === 'broad' ? 'broad' : 'exact',
           caseSensitive: !!r.caseSensitive, maxLinks: r.maxLinks || '', firstMatchOnly: !!r.firstMatchOnly,
-          enabled: r.enabled !== false, clicks: 0, isBroken: false,
+          enabled: r.enabled !== false, clicks: 0, visitors: 0, isBroken: false,
         }));
         if (!rules.length) { window.alert('The file holds no rules.'); return; }
         setFormData(prev => {
@@ -1449,6 +1465,12 @@ export default function App({ suiteMode = false } = {}) {
         .then(({ ok, d }) => {
           if (!ok || !d || d.ok !== true || !d.summary) { window.alert((d && d.message) || 'The check could not run.'); return; } // rounds 2-4: a failed or partial check is said, never shown as a clean state
           setMonitorSummary(d.summary); setMonitorProblems(d.problems || []); setMonitorHasMore(!!d.has_more);
+          // Statuses changed: a Live list that was already loaded is read again, and the usage meter follows the quota the check used.
+          setLiveState(s => { if (s.loaded) setTimeout(() => loadLive(false), 0); return s; });
+          fetch(cfg.rest + 'usage', { headers: { 'X-WP-Nonce': cfg.nonce } })
+            .then(r => r.json().then(u => ({ ok: r.ok, u })))
+            .then(({ ok, u }) => { if (ok && u && u.state) setSvcUsage(u); })
+            .catch(() => {});
           const st = d.service_state;
           if (st === 'connect') window.alert('DevDome refused the check: connect this site to a DevDome account first. Nothing was checked.');
           else if (st === 'quota') window.alert('The monthly Link Radar quota of your account is used up. Nothing was checked.');
@@ -1456,7 +1478,68 @@ export default function App({ suiteMode = false } = {}) {
         })
         .catch(() => window.alert('The check could not run.'))
         .finally(() => { if (isStatus) setMonitorRefresh(null); else setMonitorState('idle'); });
+  }, [loadLive]);
+
+  // ---- Check Now run: server-side job (option + WP-Cron ticks); the open screen drives ticks too and shows the progress row.
+  const checkApi = useCallback((path, method, body) => {
+      const cfg = window.DEVDAFFI_ADMIN;
+      return fetch(cfg.rest + path, { method: method || 'GET', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce }, body: body ? JSON.stringify(body) : undefined })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })));
   }, []);
+  const applyCheckProgress = useCallback((p) => {
+      if (!p || typeof p.status !== 'string') return;
+      setCheckJob(p.status ? p : null);
+      if (p.summary) { setMonitorSummary(p.summary); setMonitorProblems(p.problems || []); setMonitorHasMore(!!p.has_more); }
+      if (p.usage && typeof p.usage.used === 'number') setSvcUsage(prev => (prev && prev.usage) ? { ...prev, usage: { ...prev.usage, ...p.usage } } : prev); // live meter
+  }, []);
+  const refreshAfterCheck = useCallback(() => {
+      const cfg = window.DEVDAFFI_ADMIN;
+      if (!cfg) return;
+      setLiveState(s => { if (s.loaded) setTimeout(() => loadLive(false), 0); return s; });
+      fetch(cfg.rest + 'usage', { headers: { 'X-WP-Nonce': cfg.nonce } })
+        .then(r => r.json().then(u => ({ ok: r.ok, u })))
+        .then(({ ok, u }) => { if (ok && u && u.state) setSvcUsage(u); })
+        .catch(() => {});
+  }, [loadLive]);
+  const checkLoop = useCallback(() => {
+      if (checkLoopRef.current) return;
+      checkLoopRef.current = true;
+      const step = () => {
+        if (!checkLoopRef.current || !mountedRef.current) return;
+        if (document.hidden) { setTimeout(step, 1500); return; } // a hidden tab does no work; the server cron keeps going
+        checkApi('check-tick', 'POST').then(({ ok, d }) => {
+          if (!checkLoopRef.current) return;
+          if (!ok || !d) { setTimeout(step, 3000); return; }
+          applyCheckProgress(d);
+          if (d.status === 'running') { setTimeout(step, 700); return; }
+          checkLoopRef.current = false;
+          if (d.status === 'done') { refreshAfterCheck(); setTimeout(() => { checkApi('check-control', 'POST', { action: 'dismiss' }).catch(() => {}); setCheckJob(null); }, 2500); }
+          else if (d.status === 'cancelled') { refreshAfterCheck(); checkApi('check-control', 'POST', { action: 'dismiss' }).catch(() => {}); setCheckJob(null); }
+          else if (d.status === 'stopped') { refreshAfterCheck(); }
+        }).catch(() => { if (checkLoopRef.current) setTimeout(step, 3000); });
+      };
+      step();
+  }, [checkApi, applyCheckProgress, refreshAfterCheck]);
+  const handleCheckStart = useCallback(() => {
+      checkApi('check-start', 'POST').then(({ ok, d }) => {
+        if (!mountedRef.current) return;
+        if (!ok || !d || d.code) { window.alert((d && d.message) || 'The check could not start.'); return; }
+        applyCheckProgress(d);
+        checkLoop();
+      }).catch(() => window.alert('The check could not start.'));
+  }, [checkApi, applyCheckProgress, checkLoop]);
+  const handleCheckControl = useCallback((action) => {
+      checkApi('check-control', 'POST', { action }).then(({ ok, d }) => {
+        if (!mountedRef.current) return;
+        if (!ok || !d || d.code) { window.alert((d && d.message) || 'The change could not be saved.'); return; }
+        if (action === 'dismiss') { setCheckJob(null); return; }
+        if (action === 'pause') checkLoopRef.current = false; // no more ticks from this page until Resume
+        applyCheckProgress(d);
+        if (action === 'resume') checkLoop();
+        if (action === 'cancel') { checkLoopRef.current = false; refreshAfterCheck(); checkApi('check-control', 'POST', { action: 'dismiss' }).catch(() => {}); setCheckJob(null); }
+      }).catch(() => window.alert('The change could not be saved.'));
+  }, [checkApi, applyCheckProgress, checkLoop, refreshAfterCheck]);
+  useEffect(() => () => { mountedRef.current = false; checkLoopRef.current = false; }, []);
 
   const handleAddAutoLinkRule = useCallback(() => {
     const newId = Date.now();
@@ -2031,14 +2114,14 @@ export default function App({ suiteMode = false } = {}) {
                                                   Tag #{ruleIdx + 1}
                                                   <span className="text-white/30 mx-1.5 font-normal">|</span>
                                                   <BarChart2 size={11} className="mr-1 mb-[1px]" strokeWidth={2.5} />
-                                                  {rule.clicks || 0} Clicks
+                                                  {rule.clicks || 0} Clicks · {rule.visitors || 0} Unique
                                               </span>
                                               
                                               {/* Reset Icon */}
                                               {(rule.clicks > 0) && (
                                                   <button 
                                                       type="button" 
-                                                      onClick={(e) => { e.stopPropagation(); handleResetRowClicks(rule.affiliateId, () => handleRuleChange(1, rule.id, 'clicks', 0)); }} 
+                                                      onClick={(e) => { e.stopPropagation(); handleResetRowClicks(rule.affiliateId, () => { handleRuleChange(1, rule.id, 'clicks', 0); handleRuleChange(1, rule.id, 'visitors', 0); }); }} 
                                                       className="text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none" 
                                                       title="Reset clicks"
                                                   >
@@ -2238,6 +2321,9 @@ export default function App({ suiteMode = false } = {}) {
                                 <SimpleCheckbox name="geoEnabled" checked={formData.geoEnabled} onChange={handleCheckboxChange} label="Auto-redirect visitors to their local Amazon store" />
                             </SettingRow>
                             </div>
+                            <SettingRow label="WooCommerce Buttons" hint="External product buttons that link to Amazon go through your tags." tooltip="For WooCommerce external or affiliate products whose button links to an Amazon product: the button is sent through the plugin's tracked link, so it carries the right Associates tag for the visitor's store and counts as a click. Off by default.">
+                                <SimpleCheckbox name="wooButtonRewrite" checked={formData.wooButtonRewrite} onChange={handleCheckboxChange} label="Route external product buttons through your tags" />
+                            </SettingRow>
                         </div>
 
                         <div>
@@ -2535,14 +2621,14 @@ export default function App({ suiteMode = false } = {}) {
                                                         Rule #{ruleIdx + 1}
                                                         <span className="text-white/30 mx-1.5 font-normal">|</span>
                                                         <BarChart2 size={11} className="mr-1 mb-[1px]" strokeWidth={2.5} />
-                                                        {rule.clicks || 0} Clicks
+                                                        {rule.clicks || 0} Clicks · {rule.visitors || 0} Unique
                                                     </span>
                                                     
                                                     {/* Reset Icon */}
                                                     {(rule.clicks > 0) && (
                                                         <button 
                                                             type="button" 
-                                                            onClick={(e) => { e.stopPropagation(); handleResetRowClicks('__rule__' + rule.id, () => handleAutoLinkRuleChange(rule.id, 'clicks', 0)); }} 
+                                                            onClick={(e) => { e.stopPropagation(); handleResetRowClicks('__rule__' + rule.id, () => { handleAutoLinkRuleChange(rule.id, 'clicks', 0); handleAutoLinkRuleChange(rule.id, 'visitors', 0); }); }} 
                                                             className="text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none" 
                                                             title="Reset clicks"
                                                         >
@@ -2759,7 +2845,7 @@ export default function App({ suiteMode = false } = {}) {
                              </div>
                          </SettingRow>
 
-                         <SettingRow label="Auto Re-Scan" hint="Keeps the link list current without manual scans." tooltip="How often the plugin automatically re-scans your content for Amazon links. Manual scans are always available above.">
+                         <SettingRow label="Auto Re-Scan" hint="Keeps the link list current without manual scans. Also checks up to 20 products an hour with DevDome, using your monthly checks." tooltip="How often the plugin automatically re-scans your content for Amazon links. While this is on, a batch of up to 20 scanned products is also status-checked every hour through your DevDome account. Manual scans are always available above.">
                              <SimpleCheckbox name="scanAuto" checked={formData.scanAuto} onChange={handleCheckboxChange} label="Automatically re-scan on a schedule" />
                          </SettingRow>
 
@@ -2788,9 +2874,42 @@ export default function App({ suiteMode = false } = {}) {
                      </div>
 
                      <div>
-                         <div className="border-b border-gray-100 pb-4 mb-6">
+                         <div className="border-b border-gray-100 pb-4 mb-6 flex flex-wrap items-center justify-between gap-3">
                              <h3 className="text-base font-bold text-gray-800">Stock & 404 Monitor</h3>
+                             {/* Check Now = a run over every scanned product (batches of 20, server-side job with Pause / Cancel; the progress row is below). */}
+                             {!(checkJob && checkJob.active) && (
+                                 <div className="flex items-center gap-1.5">
+                                     <button type="button" onClick={handleCheckStart} disabled={!amazonLinksFound || !svcUsage || svcUsage.state === 'connect'} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md text-sm font-bold hover:bg-indigo-100 hover:border-indigo-200 transition-colors shadow-sm whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none">
+                                         <Activity size={16} /> Check Now
+                                     </button>
+                                     <InfoTooltip text="Checks every scanned product with DevDome in small batches: live, out of stock or 404. You can pause, resume or cancel; the run keeps going on the server if you leave this page. Uses your monthly Link Radar checks. Needs a scan and a connected DevDome account." alignment="right" />
+                                 </div>
+                             )}
                          </div>
+
+                         {/* Check Now progress row (Link Monitor scan pattern: message + count, bar, Pause / Cancel) */}
+                         {checkJob && checkJob.status && (
+                            <div className="mb-6" data-check-status={checkJob.status}>
+                               <div className="flex justify-between text-[12px] text-gray-500 mb-1.5">
+                                  <span role="status" aria-live="polite" className={checkJob.status === 'stopped' ? 'text-red-700 font-semibold' : checkJob.status === 'done' ? 'text-emerald-700 font-semibold' : ''}>{checkJob.message}</span>
+                                  <span aria-hidden="true">{checkJob.active ? `${checkJob.done} of ${checkJob.total}` : ''}</span>
+                               </div>
+                               <div className="h-2 bg-gray-100 rounded-full overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={checkJob.pct} aria-label="Check progress">
+                                  <div className={`h-full rounded-full transition-all duration-500 ${checkJob.status === 'stopped' ? 'bg-red-400' : checkJob.status === 'done' ? 'bg-emerald-500' : checkJob.status === 'running' ? 'bg-indigo-600 animate-pulse' : 'bg-indigo-600'}`} style={{ width: (checkJob.status === 'done' ? 100 : Math.max(checkJob.status === 'running' ? 3 : 0, checkJob.pct)) + '%' }}></div>
+                               </div>
+                               {checkJob.active && (
+                                  <div className="mt-2 flex gap-2">
+                                     <button type="button" onClick={() => handleCheckControl(checkJob.status === 'paused' ? 'resume' : 'pause')} className="px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-indigo-300 shadow-sm">{checkJob.status === 'paused' ? 'Resume' : 'Pause'}</button>
+                                     <button type="button" onClick={() => handleCheckControl('cancel')} className="px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-red-300 shadow-sm">Cancel</button>
+                                  </div>
+                               )}
+                               {checkJob.status === 'stopped' && (
+                                  <div className="mt-2 flex gap-2">
+                                     <button type="button" onClick={() => handleCheckControl('dismiss')} className="px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm">Close</button>
+                                  </div>
+                               )}
+                            </div>
+                         )}
 
                          {/* Unified status list: 3 always-visible expandable rows (Live / Out of Stock / 404). Live lazy-loads. */}
                          <div className="space-y-3 mb-6">
@@ -2991,7 +3110,7 @@ export default function App({ suiteMode = false } = {}) {
                             })}
 
                             {monitorSummary.checked === 0 && (
-                               <Hint text="No links checked yet. The scheduled scan verifies links in the background; counts will appear above once checks run." />
+                               <Hint text="No links checked yet. Press Check Now to check every scanned product, or let Auto Re-Scan check them in the background; counts will appear above once checks run." />
                             )}
                          </div>
 
@@ -3066,6 +3185,12 @@ export default function App({ suiteMode = false } = {}) {
                           </button>
                         </div>
                     </SettingRow>
+
+                    {formData.blockBots && (
+                      <SettingRow label="Outdated Browsers" hint="Desktop browsers that are years behind are treated as bots and counted with the blocked bots." tooltip="Desktop Chrome, Edge and Firefox update themselves, so a real visitor is almost never years behind, while automated traffic often wears an old, copied browser name. Versions below 125 are blocked; Chrome and Edge 109 (the last for Windows 7 and 8) and Firefox 115 ESR stay allowed. Phones and tablets are never judged. Same rule as Redirect Manager's Outdated Browsers.">
+                          <SimpleCheckbox name="blockOldBrowsers" checked={formData.blockOldBrowsers} onChange={handleCheckboxChange} label="Block outdated browsers" />
+                      </SettingRow>
+                    )}
 
                     {formData.blockBots && (
                       <SettingRow label="Redirect Method" hint="How protected clicks reach Amazon." tooltip="JavaScript 302 keeps the referrer and works with caching plugins. Server side redirects are faster but some caches store them. Change it only if clicks are not being tracked.">

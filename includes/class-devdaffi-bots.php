@@ -52,4 +52,24 @@ class DEVDAFFI_Bots {
 		}
 		return false;
 	}
+
+	/**
+	 * True for a desktop browser whose version is years behind (Redirect Manager 1.5.4 rule, 1:1). Desktop Chrome, Edge
+	 * and Firefox update themselves, so a real visitor is almost never on one of these, while automated traffic often
+	 * wears an old, copied User-Agent. Fixed floors, never raised on their own; Chrome and Edge 109 (last for
+	 * Windows 7/8) and Firefox 115 ESR stay allowed. Phones and tablets are never judged.
+	 */
+	public static function is_outdated_browser( $ua ) {
+		$ua = (string) $ua;
+		if ( '' === $ua || preg_match( '/Mobile|Android|iPhone|iPad/i', $ua ) ) {
+			return false;
+		}
+		if ( preg_match( '#Firefox/(\d+)#', $ua, $m ) ) {
+			return (int) $m[1] < 125 && 115 !== (int) $m[1];
+		}
+		if ( preg_match( '#(?:Chrome|Chromium)/(\d+)#', $ua, $m ) ) {
+			return (int) $m[1] < 125 && 109 !== (int) $m[1];
+		}
+		return false;
+	}
 }

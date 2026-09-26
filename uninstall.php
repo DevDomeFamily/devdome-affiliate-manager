@@ -23,6 +23,10 @@ function devdaffi_uninstall_site() {
 	delete_option( 'devdaffi_usage' );
 	delete_option( 'devdaffi_replace_journal' );
 	delete_option( 'devdaffi_replace_lock' );
+	delete_option( 'devdaffi_check_job' );
+	delete_option( 'devdaffi_check_tick_lock' );
+	delete_option( 'devdaffi_check_tick_key' );
+	wp_clear_scheduled_hook( 'devdaffi_check_tick' );
 	delete_transient( 'devdaffi_hub_summary_init' );
 	wp_clear_scheduled_hook( 'devdaffi_scan_cron' );
 	wp_clear_scheduled_hook( 'devdaffi_hub_summary' );

@@ -75,6 +75,7 @@ class DEVDAFFI_Settings {
 			),
 			'click_protection' => array(
 				'block_bots'       => true,
+				'block_old_browsers' => false, // Outdated Browsers switch (RM 1.5.4 rule), off until the owner turns it on
 				'redirect_method'  => 'js_302',          // 'js_302' | 'js' | '302'
 			),
 		);
@@ -124,7 +125,7 @@ class DEVDAFFI_Settings {
 			'auto_linker.skip.headings', 'auto_linker.skip.links', 'auto_linker.skip.code', 'auto_linker.skip.first_paragraph', 'auto_linker.skip.blockquotes',
 			'monitor.oos_to_search', 'monitor.dead_to_search',
 			'mobile_app.enabled', 'mobile_app.ios_safari_button',
-			'click_protection.block_bots',
+			'click_protection.block_bots', 'click_protection.block_old_browsers',
 		);
 	}
 
@@ -482,6 +483,7 @@ class DEVDAFFI_Settings {
 		$method = isset( $cp['redirect_method'] ) ? $cp['redirect_method'] : 'js_302';
 		$clean['click_protection'] = array(
 			'block_bots'       => true === self::to_bool( isset( $cp['block_bots'] ) ? $cp['block_bots'] : false ),
+			'block_old_browsers' => true === self::to_bool( isset( $cp['block_old_browsers'] ) ? $cp['block_old_browsers'] : false ),
 			'redirect_method'  => in_array( $method, array( 'js_302', 'js', '302' ), true ) ? $method : 'js_302',
 		);
 

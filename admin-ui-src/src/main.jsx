@@ -13,11 +13,13 @@ import './index.css';
 // The slot may not exist on initial script execution if PI's React tree mounts after this
 // module loads — so we poll briefly with MutationObserver, then fall back.
 const mount = (el, suiteMode = false) => {
-  createRoot(el).render(
+  const root = createRoot(el);
+  root.render(
     <React.StrictMode>
       <App suiteMode={suiteMode} />
     </React.StrictMode>
   );
+  return root;
 };
 
 // Pull the AM CSS <link> from the light DOM so we can re-attach a clone inside the shadow root.
@@ -36,7 +38,14 @@ const standalone = document.getElementById('devdaffi-root');
 if (standalone) {
   mount(standalone, false);
 } else if (typeof window !== 'undefined' && window.PI_CONFIG && window.PI_CONFIG.affiliateManagerActive) {
+  // The one mounted suite tree: when PI removes its slot (tab switch) the tree is unmounted, so its effects
+  // (the Check Now tick loop among them) stop instead of living on in a detached instance.
+  let mounted = null; // { slot, root }
   const trySuiteSlot = () => {
+    if (mounted && !document.contains(mounted.slot)) {
+      try { mounted.root.unmount(); } catch (e) { /* already gone */ }
+      mounted = null;
+    }
     const slot = document.getElementById('am-link-control-host-top');
     if (!slot || slot.dataset.amMounted) {
       return;
@@ -65,7 +74,7 @@ if (standalone) {
       // Browsers that reject attachShadow (very rare in admin context) — fall back to direct mount.
       reactRoot = host;
     }
-    mount(reactRoot, true);
+    mounted = { slot, root: mount(reactRoot, true) };
   };
 
   // Initial attempt + persistent observer. The slot can disappear (when the user switches PI tabs

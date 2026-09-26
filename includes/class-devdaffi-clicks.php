@@ -42,7 +42,11 @@ class DEVDAFFI_Clicks {
 		);
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema check
 		if ( $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
-			update_option( self::DB_OPTION, self::DB_VERSION ); // only when the table is really there (round 1)
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema check: the version is recorded only when the visitors column is really there (Codex 1.1.2 r4), otherwise the next load tries the upgrade again
+			$col = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM $table LIKE %s", 'visitors' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- prefix-derived table name
+			if ( 'visitors' === $col ) {
+				update_option( self::DB_OPTION, self::DB_VERSION ); // only when the table AND the column are really there (round 1 + r4)
+			}
 		}
 	}
 

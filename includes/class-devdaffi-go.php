@@ -250,7 +250,7 @@ class DEVDAFFI_Go {
 		}
 		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
 		$ip = self::limiter_ip(); // CF-Connecting-IP only from a Cloudflare edge (round 7)
-		if ( DEVDAFFI_Bots::is_bot( $ua, $ip ) ) {
+		if ( DEVDAFFI_Bots::is_bot( $ua, $ip ) || ( ! empty( $cp['block_old_browsers'] ) && DEVDAFFI_Bots::is_outdated_browser( $ua ) ) ) {
 			if ( $this->record_ok ) {
 				DEVDAFFI_Clicks::record( DEVDAFFI_Clicks::BOTS_KEY ); // count the block (capped like every counter)
 			}
@@ -441,7 +441,8 @@ class DEVDAFFI_Go {
 				'headers'     => array( 'User-Agent' => 'Mozilla/5.0 (compatible; DevDomeAff/1.0)' ),
 			);
 			$resp = wp_remote_head( $current, $args );
-			if ( is_wp_error( $resp ) || (int) wp_remote_retrieve_response_code( $resp ) < 200 ) {
+			$head_code = is_wp_error( $resp ) ? 0 : (int) wp_remote_retrieve_response_code( $resp );
+			if ( $head_code < 200 || 405 === $head_code || 501 === $head_code ) { // no answer, or HEAD refused (405 / 501): ask again with GET
 				$resp = wp_remote_get( $current, $args );
 			}
 			if ( is_wp_error( $resp ) ) {

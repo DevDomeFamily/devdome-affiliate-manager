@@ -84,7 +84,7 @@ Link Radar scans content and WooCommerce external products for Amazon links. Run
 
 ### Affiliate link tracking and click protection
 
-The `/go` endpoint provides affiliate tracking with total and unique clicks, link performance and Amazon product activity. View clicks per tag and keyword rule.
+The `/go` endpoint provides affiliate link tracking: total clicks and unique visitors per affiliate tag and per keyword rule, plus one counter of blocked bot clicks.
 
 An Amazon shortlink, such as amzn.to or a.co, is resolved before its destination is validated and tagged. Unique-click statistics use a temporary hash of IP address and browser user agent for 30 minutes; raw values are not stored in click statistics.
 

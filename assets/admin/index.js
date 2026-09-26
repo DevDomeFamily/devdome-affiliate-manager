@@ -8452,6 +8452,7 @@ function App({ suiteMode = false } = {}) {
     btn1SkipTag: false,
     btn1FollowMode: "nofollow",
     btn1OpenInNewTab: true,
+    wooButtonRewrite: false,
     btn1Sponsored: true,
     btn1AffiliateRules: [],
     globalExclusions: [],
@@ -8462,6 +8463,7 @@ function App({ suiteMode = false } = {}) {
     androidMode: "browser",
     iosOpenInSafari: false,
     blockBots: true,
+    blockOldBrowsers: false,
     redirectMethod: "js_302",
     scanFrequency: "7",
     scanFrequencyUnit: "days",
@@ -8512,6 +8514,9 @@ function App({ suiteMode = false } = {}) {
   const [monitorHasMore, setMonitorHasMore] = reactExports.useState(false);
   const [replaceUnfinished, setReplaceUnfinished] = reactExports.useState([]);
   const [monitorState, setMonitorState] = reactExports.useState("idle");
+  const [checkJob, setCheckJob] = reactExports.useState(null);
+  const checkLoopRef = reactExports.useRef(false);
+  const mountedRef = reactExports.useRef(true);
   const [monitorRefresh, setMonitorRefresh] = reactExports.useState(null);
   const [expandedProblems, setExpandedProblems] = reactExports.useState({});
   const [listOpen, setListOpen] = reactExports.useState(() => {
@@ -8579,6 +8584,7 @@ function App({ suiteMode = false } = {}) {
       const exc = backendToExclusions(data.exclusions || {});
       const b = data.button || {};
       const clicksMap = data.clicks || {};
+      const visitorsMap = data.visitors || {};
       const al2 = data.auto_linker || {};
       const ap = al2.apply || {};
       const sk2 = al2.skip || {};
@@ -8601,9 +8607,11 @@ function App({ suiteMode = false } = {}) {
           enabled: t2.enabled !== false,
           nickname: t2.nickname || "",
           ruleValues: rulesToRuleValues(t2.rules),
-          clicks: clicksMap[t2.affiliate_id] || 0
+          clicks: clicksMap[t2.affiliate_id] || 0,
+          visitors: visitorsMap[t2.affiliate_id] || 0
         })) : prev.btn1AffiliateRules,
         geoEnabled: !!data.geo_enabled,
+        wooButtonRewrite: !!data.woo_button_rewrite,
         btn1FollowMode: lo.rel === "follow" ? "follow" : "nofollow",
         btn1OpenInNewTab: !!lo.new_tab,
         btn1Sponsored: "sponsored" in lo ? !!lo.sponsored : prev.btn1Sponsored,
@@ -8631,6 +8639,7 @@ function App({ suiteMode = false } = {}) {
         iosOpenInSafari: ma2.ios_safari_button !== false,
         androidMode: ma2.android_mode === "intent" ? "intent" : "browser",
         blockBots: cp.block_bots !== false,
+        blockOldBrowsers: cp.block_old_browsers === true,
         redirectMethod: ["js_302", "js", "302"].includes(cp.redirect_method) ? cp.redirect_method : "js_302",
         autoLinkerRules: Array.isArray(al2.rules) ? al2.rules.map((r2, i) => ({
           id: r2.id || i + 1,
@@ -8644,6 +8653,7 @@ function App({ suiteMode = false } = {}) {
           firstMatchOnly: !!r2.first_match_only,
           enabled: r2.enabled !== false,
           clicks: clicksMap["__rule__" + (r2.id || "")] || 0,
+          visitors: visitorsMap["__rule__" + (r2.id || "")] || 0,
           isBroken: false
         })) : prev.autoLinkerRules
       }));
@@ -8682,6 +8692,14 @@ function App({ suiteMode = false } = {}) {
       if (ok2 && d && d.state) setSvcUsage(d);
       else setSvcUsage({ connected: false, usage: null, state: "unavailable" });
     }).catch(() => setSvcUsage({ connected: false, usage: null, state: "unavailable" }));
+    fetch(cfg.rest + "check-progress", { headers }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (!mountedRef.current) return;
+      if (ok2 && d && d.status) {
+        applyCheckProgress(d);
+        if (d.status === "running") checkLoop();
+      }
+    }).catch(() => {
+    });
   }, []);
   const handleSave = reactExports.useCallback(() => {
     const cfg = window.DEVDAFFI_ADMIN;
@@ -8707,6 +8725,7 @@ function App({ suiteMode = false } = {}) {
       },
       default_tag: savedDefaultTag.current,
       geo_enabled: !!formData.geoEnabled,
+      woo_button_rewrite: !!formData.wooButtonRewrite,
       exclusions: exclusionsToBackend(formData.globalExclusions, formData.globalExcludedTrees, formData.globalExceptions),
       button: {
         text: formData.btn1Text,
@@ -8759,6 +8778,7 @@ function App({ suiteMode = false } = {}) {
       },
       click_protection: {
         block_bots: !!formData.blockBots,
+        block_old_browsers: !!formData.blockOldBrowsers,
         redirect_method: ["js_302", "js", "302"].includes(formData.redirectMethod) ? formData.redirectMethod : "js_302"
       }
     };
@@ -8787,7 +8807,7 @@ function App({ suiteMode = false } = {}) {
   }, [suiteMode, handleSave]);
   const autoLinkerImportRef = reactExports.useRef(null);
   const handleExportRules = reactExports.useCallback(() => {
-    const data = formData.autoLinkerRules.map(({ id: id2, clicks, isBroken, ...r2 }) => r2);
+    const data = formData.autoLinkerRules.map(({ id: id2, clicks, visitors, isBroken, ...r2 }) => r2);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -8817,6 +8837,7 @@ function App({ suiteMode = false } = {}) {
           firstMatchOnly: !!r2.firstMatchOnly,
           enabled: r2.enabled !== false,
           clicks: 0,
+          visitors: 0,
           isBroken: false
         }));
         if (!rules.length) {
@@ -8966,6 +8987,14 @@ function App({ suiteMode = false } = {}) {
       setMonitorSummary(d.summary);
       setMonitorProblems(d.problems || []);
       setMonitorHasMore(!!d.has_more);
+      setLiveState((s) => {
+        if (s.loaded) setTimeout(() => loadLive(false), 0);
+        return s;
+      });
+      fetch(cfg.rest + "usage", { headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((u2) => ({ ok: r2.ok, u: u2 }))).then(({ ok: ok22, u: u2 }) => {
+        if (ok22 && u2 && u2.state) setSvcUsage(u2);
+      }).catch(() => {
+      });
       const st = d.service_state;
       if (st === "connect") window.alert("DevDome refused the check: connect this site to a DevDome account first. Nothing was checked.");
       else if (st === "quota") window.alert("The monthly Link Radar quota of your account is used up. Nothing was checked.");
@@ -8974,6 +9003,112 @@ function App({ suiteMode = false } = {}) {
       if (isStatus) setMonitorRefresh(null);
       else setMonitorState("idle");
     });
+  }, [loadLive]);
+  const checkApi = reactExports.useCallback((path, method, body) => {
+    const cfg = window.DEVDAFFI_ADMIN;
+    return fetch(cfg.rest + path, { method: method || "GET", headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce }, body: body ? JSON.stringify(body) : void 0 }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d })));
+  }, []);
+  const applyCheckProgress = reactExports.useCallback((p2) => {
+    if (!p2 || typeof p2.status !== "string") return;
+    setCheckJob(p2.status ? p2 : null);
+    if (p2.summary) {
+      setMonitorSummary(p2.summary);
+      setMonitorProblems(p2.problems || []);
+      setMonitorHasMore(!!p2.has_more);
+    }
+    if (p2.usage && typeof p2.usage.used === "number") setSvcUsage((prev) => prev && prev.usage ? { ...prev, usage: { ...prev.usage, ...p2.usage } } : prev);
+  }, []);
+  const refreshAfterCheck = reactExports.useCallback(() => {
+    const cfg = window.DEVDAFFI_ADMIN;
+    if (!cfg) return;
+    setLiveState((s) => {
+      if (s.loaded) setTimeout(() => loadLive(false), 0);
+      return s;
+    });
+    fetch(cfg.rest + "usage", { headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((u2) => ({ ok: r2.ok, u: u2 }))).then(({ ok: ok2, u: u2 }) => {
+      if (ok2 && u2 && u2.state) setSvcUsage(u2);
+    }).catch(() => {
+    });
+  }, [loadLive]);
+  const checkLoop = reactExports.useCallback(() => {
+    if (checkLoopRef.current) return;
+    checkLoopRef.current = true;
+    const step = () => {
+      if (!checkLoopRef.current || !mountedRef.current) return;
+      if (document.hidden) {
+        setTimeout(step, 1500);
+        return;
+      }
+      checkApi("check-tick", "POST").then(({ ok: ok2, d }) => {
+        if (!checkLoopRef.current) return;
+        if (!ok2 || !d) {
+          setTimeout(step, 3e3);
+          return;
+        }
+        applyCheckProgress(d);
+        if (d.status === "running") {
+          setTimeout(step, 700);
+          return;
+        }
+        checkLoopRef.current = false;
+        if (d.status === "done") {
+          refreshAfterCheck();
+          setTimeout(() => {
+            checkApi("check-control", "POST", { action: "dismiss" }).catch(() => {
+            });
+            setCheckJob(null);
+          }, 2500);
+        } else if (d.status === "cancelled") {
+          refreshAfterCheck();
+          checkApi("check-control", "POST", { action: "dismiss" }).catch(() => {
+          });
+          setCheckJob(null);
+        } else if (d.status === "stopped") {
+          refreshAfterCheck();
+        }
+      }).catch(() => {
+        if (checkLoopRef.current) setTimeout(step, 3e3);
+      });
+    };
+    step();
+  }, [checkApi, applyCheckProgress, refreshAfterCheck]);
+  const handleCheckStart = reactExports.useCallback(() => {
+    checkApi("check-start", "POST").then(({ ok: ok2, d }) => {
+      if (!mountedRef.current) return;
+      if (!ok2 || !d || d.code) {
+        window.alert(d && d.message || "The check could not start.");
+        return;
+      }
+      applyCheckProgress(d);
+      checkLoop();
+    }).catch(() => window.alert("The check could not start."));
+  }, [checkApi, applyCheckProgress, checkLoop]);
+  const handleCheckControl = reactExports.useCallback((action) => {
+    checkApi("check-control", "POST", { action }).then(({ ok: ok2, d }) => {
+      if (!mountedRef.current) return;
+      if (!ok2 || !d || d.code) {
+        window.alert(d && d.message || "The change could not be saved.");
+        return;
+      }
+      if (action === "dismiss") {
+        setCheckJob(null);
+        return;
+      }
+      if (action === "pause") checkLoopRef.current = false;
+      applyCheckProgress(d);
+      if (action === "resume") checkLoop();
+      if (action === "cancel") {
+        checkLoopRef.current = false;
+        refreshAfterCheck();
+        checkApi("check-control", "POST", { action: "dismiss" }).catch(() => {
+        });
+        setCheckJob(null);
+      }
+    }).catch(() => window.alert("The change could not be saved."));
+  }, [checkApi, applyCheckProgress, checkLoop, refreshAfterCheck]);
+  reactExports.useEffect(() => () => {
+    mountedRef.current = false;
+    checkLoopRef.current = false;
   }, []);
   const handleAddAutoLinkRule = reactExports.useCallback(() => {
     const newId = Date.now();
@@ -9529,7 +9664,9 @@ function App({ suiteMode = false } = {}) {
                           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white/30 mx-1.5 font-normal", children: "|" }),
                           /* @__PURE__ */ jsxRuntimeExports.jsx(ChartNoAxesColumn, { size: 11, className: "mr-1 mb-[1px]", strokeWidth: 2.5 }),
                           rule.clicks || 0,
-                          " Clicks"
+                          " Clicks · ",
+                          rule.visitors || 0,
+                          " Unique"
                         ] }),
                         rule.clicks > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
                           "button",
@@ -9537,7 +9674,10 @@ function App({ suiteMode = false } = {}) {
                             type: "button",
                             onClick: (e) => {
                               e.stopPropagation();
-                              handleResetRowClicks(rule.affiliateId, () => handleRuleChange(1, rule.id, "clicks", 0));
+                              handleResetRowClicks(rule.affiliateId, () => {
+                                handleRuleChange(1, rule.id, "clicks", 0);
+                                handleRuleChange(1, rule.id, "visitors", 0);
+                              });
                             },
                             className: "text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none",
                             title: "Reset clicks",
@@ -9724,7 +9864,8 @@ function App({ suiteMode = false } = {}) {
               }, children: "Connect your DevDome account" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-gray-500", children: "Store routing runs on DevDome servers. Requires a DevDome account." })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: svcUsage && !svcUsage.usage ? "opacity-50 pointer-events-none" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "OneLink Alternative", hint: "Visitors land on their local Amazon store with your tag for it.", tooltip: "Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "geoEnabled", checked: formData.geoEnabled, onChange: handleCheckboxChange, label: "Auto-redirect visitors to their local Amazon store" }) }) })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: svcUsage && !svcUsage.usage ? "opacity-50 pointer-events-none" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "OneLink Alternative", hint: "Visitors land on their local Amazon store with your tag for it.", tooltip: "Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "geoEnabled", checked: formData.geoEnabled, onChange: handleCheckboxChange, label: "Auto-redirect visitors to their local Amazon store" }) }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "WooCommerce Buttons", hint: "External product buttons that link to Amazon go through your tags.", tooltip: "For WooCommerce external or affiliate products whose button links to an Amazon product: the button is sent through the plugin's tracked link, so it carries the right Associates tag for the visitor's store and counts as a click. Off by default.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "wooButtonRewrite", checked: formData.wooButtonRewrite, onChange: handleCheckboxChange, label: "Route external product buttons through your tags" }) })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-b border-gray-100 pb-3 mb-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Link Options" }) }),
@@ -10002,7 +10143,9 @@ function App({ suiteMode = false } = {}) {
                                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white/30 mx-1.5 font-normal", children: "|" }),
                                 /* @__PURE__ */ jsxRuntimeExports.jsx(ChartNoAxesColumn, { size: 11, className: "mr-1 mb-[1px]", strokeWidth: 2.5 }),
                                 rule.clicks || 0,
-                                " Clicks"
+                                " Clicks · ",
+                                rule.visitors || 0,
+                                " Unique"
                               ] }),
                               rule.clicks > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
                                 "button",
@@ -10010,7 +10153,10 @@ function App({ suiteMode = false } = {}) {
                                   type: "button",
                                   onClick: (e) => {
                                     e.stopPropagation();
-                                    handleResetRowClicks("__rule__" + rule.id, () => handleAutoLinkRuleChange(rule.id, "clicks", 0));
+                                    handleResetRowClicks("__rule__" + rule.id, () => {
+                                      handleAutoLinkRuleChange(rule.id, "clicks", 0);
+                                      handleAutoLinkRuleChange(rule.id, "visitors", 0);
+                                    });
                                   },
                                   className: "text-white/70 hover:text-white ml-0.5 shrink-0 flex items-center transition-colors focus:outline-none",
                                   title: "Reset clicks",
@@ -10183,7 +10329,7 @@ function App({ suiteMode = false } = {}) {
                     ] })
                   ] })
                 ] }) }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Auto Re-Scan", hint: "Keeps the link list current without manual scans.", tooltip: "How often the plugin automatically re-scans your content for Amazon links. Manual scans are always available above.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "scanAuto", checked: formData.scanAuto, onChange: handleCheckboxChange, label: "Automatically re-scan on a schedule" }) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Auto Re-Scan", hint: "Keeps the link list current without manual scans. Also checks up to 20 products an hour with DevDome, using your monthly checks.", tooltip: "How often the plugin automatically re-scans your content for Amazon links. While this is on, a batch of up to 20 scanned products is also status-checked every hour through your DevDome account. Manual scans are always available above.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "scanAuto", checked: formData.scanAuto, onChange: handleCheckboxChange, label: "Automatically re-scan on a schedule" }) }),
                 formData.scanAuto && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Scan every", hint: "7 days suits most sites.", tooltip: "Shorter intervals only help if you publish Amazon links daily. A re-scan reads your content on your own server and uses no link checks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 flex-wrap animate-in fade-in slide-in-from-top-1 duration-200", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "input",
@@ -10220,7 +10366,28 @@ function App({ suiteMode = false } = {}) {
                 ] }) })
               ] }),
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-b border-gray-100 pb-4 mb-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Stock & 404 Monitor" }) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-b border-gray-100 pb-4 mb-6 flex flex-wrap items-center justify-between gap-3", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Stock & 404 Monitor" }),
+                  !(checkJob && checkJob.active) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: handleCheckStart, disabled: !amazonLinksFound || !svcUsage || svcUsage.state === "connect", className: "flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-md text-sm font-bold hover:bg-indigo-100 hover:border-indigo-200 transition-colors shadow-sm whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(Activity, { size: 16 }),
+                      " Check Now"
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: "Checks every scanned product with DevDome in small batches: live, out of stock or 404. You can pause, resume or cancel; the run keeps going on the server if you leave this page. Uses your monthly Link Radar checks. Needs a scan and a connected DevDome account.", alignment: "right" })
+                  ] })
+                ] }),
+                checkJob && checkJob.status && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", "data-check-status": checkJob.status, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-[12px] text-gray-500 mb-1.5", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { role: "status", "aria-live": "polite", className: checkJob.status === "stopped" ? "text-red-700 font-semibold" : checkJob.status === "done" ? "text-emerald-700 font-semibold" : "", children: checkJob.message }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-hidden": "true", children: checkJob.active ? `${checkJob.done} of ${checkJob.total}` : "" })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-2 bg-gray-100 rounded-full overflow-hidden", role: "progressbar", "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": checkJob.pct, "aria-label": "Check progress", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `h-full rounded-full transition-all duration-500 ${checkJob.status === "stopped" ? "bg-red-400" : checkJob.status === "done" ? "bg-emerald-500" : checkJob.status === "running" ? "bg-indigo-600 animate-pulse" : "bg-indigo-600"}`, style: { width: (checkJob.status === "done" ? 100 : Math.max(checkJob.status === "running" ? 3 : 0, checkJob.pct)) + "%" } }) }),
+                  checkJob.active && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => handleCheckControl(checkJob.status === "paused" ? "resume" : "pause"), className: "px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-indigo-300 shadow-sm", children: checkJob.status === "paused" ? "Resume" : "Pause" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => handleCheckControl("cancel"), className: "px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-red-300 shadow-sm", children: "Cancel" })
+                  ] }),
+                  checkJob.status === "stopped" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 flex gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => handleCheckControl("dismiss"), className: "px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm", children: "Close" }) })
+                ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3 mb-6", children: [
                   monitorHasMore && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2", children: "More flagged products exist than the 100 listed here. Replace or fix these first, then check again." }),
                   replaceUnfinished.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2", children: [
@@ -10473,7 +10640,7 @@ function App({ suiteMode = false } = {}) {
                       ] })
                     ] }, grp.key);
                   }),
-                  monitorSummary.checked === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(Hint, { text: "No links checked yet. The scheduled scan verifies links in the background; counts will appear above once checks run." })
+                  monitorSummary.checked === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(Hint, { text: "No links checked yet. Press Check Now to check every scanned product, or let Auto Re-Scan check them in the background; counts will appear above once checks run." })
                 ] }),
                 svcUsage && !svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 mb-4", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: svcUsage.connect_url, target: "_top", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "14px", fontWeight: 600, borderRadius: "8px", padding: "10px 20px", textDecoration: "none", cursor: "pointer", lineHeight: 1, whiteSpace: "nowrap", transition: ".12s", color: "#fff", background: "#2563eb", border: "1px solid #2563eb", boxShadow: "0 4px 10px -3px rgba(37,99,235,.5)" }, onMouseEnter: (e) => {
@@ -10530,6 +10697,7 @@ function App({ suiteMode = false } = {}) {
                       " Reset Count"
                     ] })
                   ] }) }),
+                  formData.blockBots && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Outdated Browsers", hint: "Desktop browsers that are years behind are treated as bots and counted with the blocked bots.", tooltip: "Desktop Chrome, Edge and Firefox update themselves, so a real visitor is almost never years behind, while automated traffic often wears an old, copied browser name. Versions below 125 are blocked; Chrome and Edge 109 (the last for Windows 7 and 8) and Firefox 115 ESR stay allowed. Phones and tablets are never judged. Same rule as Redirect Manager's Outdated Browsers.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "blockOldBrowsers", checked: formData.blockOldBrowsers, onChange: handleCheckboxChange, label: "Block outdated browsers" }) }),
                   formData.blockBots && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Redirect Method", hint: "How protected clicks reach Amazon.", tooltip: "JavaScript 302 keeps the referrer and works with caching plugins. Server side redirects are faster but some caches store them. Change it only if clicks are not being tracked.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                     RadioGroup,
                     {
@@ -11017,9 +11185,11 @@ function App({ suiteMode = false } = {}) {
   ] });
 }
 const mount = (el2, suiteMode = false) => {
-  createRoot(el2).render(
+  const root = createRoot(el2);
+  root.render(
     /* @__PURE__ */ jsxRuntimeExports.jsx(React.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, { suiteMode }) })
   );
+  return root;
 };
 const findAmCssLink = () => {
   const links = document.querySelectorAll('link[rel="stylesheet"]');
@@ -11034,7 +11204,15 @@ const standalone = document.getElementById("devdaffi-root");
 if (standalone) {
   mount(standalone, false);
 } else if (typeof window !== "undefined" && window.PI_CONFIG && window.PI_CONFIG.affiliateManagerActive) {
+  let mounted = null;
   const trySuiteSlot = () => {
+    if (mounted && !document.contains(mounted.slot)) {
+      try {
+        mounted.root.unmount();
+      } catch (e) {
+      }
+      mounted = null;
+    }
     const slot = document.getElementById("am-link-control-host-top");
     if (!slot || slot.dataset.amMounted) {
       return;
@@ -11057,7 +11235,7 @@ if (standalone) {
     } catch (e) {
       reactRoot = host;
     }
-    mount(reactRoot, true);
+    mounted = { slot, root: mount(reactRoot, true) };
   };
   trySuiteSlot();
   let pending = false;

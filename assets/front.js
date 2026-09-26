@@ -63,7 +63,7 @@
 	}
 
 	// Navigate to the /go URL — but on iOS in-app browsers offer Safari first.
-	function openDest(goUrl) {
+	function openDest(goUrl, newTab) {
 		if (APP_ENABLED && IOS_SAFARI_BTN) {
 			var ua = navigator.userAgent || '';
 			var isIOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/i.test(ua) && 'ontouchend' in document);
@@ -71,6 +71,12 @@
 				showSafariOverlay(goUrl);
 				return;
 			}
+		}
+		if (newTab) {
+			// The link was rendered with target="_blank" (Open in New Tab): keep that, fall back to the same tab
+			// only when the browser blocked the new window.
+			var w = window.open(goUrl, '_blank');
+			if (w) { try { w.opener = null; } catch (err) {} return; }
 		}
 		window.location.href = goUrl;
 	}
@@ -94,6 +100,6 @@
 		var dest = GO + (GO.indexOf('?') === -1 ? '?' : '&') + 'u=' + encodeURIComponent(url.toString()); // GO may already carry ?devdaffi_go=1 (plain permalinks)
 		var rid = a.getAttribute('data-da-rule'); // auto-linker rule → per-rule click attribution
 		if (rid) dest += '&r=' + encodeURIComponent(rid);
-		openDest(dest);
+		openDest(dest, (a.getAttribute('target') || '').toLowerCase() === '_blank');
 	}, true);
 })();
