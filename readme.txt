@@ -4,7 +4,7 @@ Tags: amazon affiliate, amazon associates, amazon affiliate links, amazon buy bu
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -225,6 +225,11 @@ Yes. Use `[devdaffi_button asin="YOUR_ASIN"]`, or `[devdaffi_button]` with a fix
 5. Click Protection: Bot Protection and the global Bots Blocked counter.
 
 == Changelog ==
+
+= 1.1.3 =
+* Link Radar: a fourth row, No Answer, lists products the status check could not classify, so every checked product is visible. The row has its own Check again button.
+* Status checks: Amazon pages that say Currently unavailable are now reported as Out of Stock (they were reported as Live).
+* Check Now runs about four times faster: 50 products per step instead of 5, and each step waits longer for the status service when many sites check at the same time.
 
 = 1.1.2 =
 

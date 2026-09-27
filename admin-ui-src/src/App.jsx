@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Save, Link, Info, ChevronDown, Plus, Trash2, ExternalLink, BarChart2,
-  Activity, ChevronUp, Eraser, Copy, FileText, Shield, Layout, Settings,
-  Smartphone, ChevronRight, X, Search, Check, AlertCircle, ArrowRightLeft,
-  Layers, Tag as TagIcon, FolderTree, Globe, Loader2, Ban, Pencil, Wand2,
-  GripVertical, RotateCcw, Link as LinkIcon, ArrowDownUp, Percent
-} from 'lucide-react';
+import { Save, Link, Info, ChevronDown, Plus, Trash2, ExternalLink, BarChart2, Activity, ChevronUp, Eraser, Copy, FileText, Shield, Layout, Settings, Smartphone, ChevronRight, X, Search, Check, AlertCircle, ArrowRightLeft, Layers, Tag as TagIcon, FolderTree, Globe, Loader2, Ban, Pencil, Wand2, GripVertical, RotateCcw, Link as LinkIcon, ArrowDownUp, Percent, HelpCircle } from 'lucide-react';
 
 // A REST route with a query string: on plain permalinks cfg.rest already ends in ?rest_route=/devdaffi/v1/, so the query
 // joins with "&" (a second "?" made WordPress answer rest_no_route 404; live click-through on test2, 2026-09-17).
@@ -1452,14 +1446,14 @@ export default function App({ suiteMode = false } = {}) {
       });
   }, []);
 
-  // status: 'oos' | 'dead' re-checks only that group (fixed ones flip back to Live);
+  // status: 'oos' | 'dead' | 'unknown' re-checks only that group (fixed ones flip back to Live);
   // omitted runs a normal batch check.
   const runMonitor = useCallback((status) => {
       const cfg = window.DEVDAFFI_ADMIN;
       if (!cfg) return;
-      const isStatus = status === 'oos' || status === 'dead';
+      const isStatus = status === 'oos' || status === 'dead' || status === 'unknown';
       if (isStatus) setMonitorRefresh(status); else setMonitorState('checking');
-      const url = cfg.rest + 'monitor' + (isStatus ? '?status=' + status : '');
+      const url = isStatus ? restQuery(cfg.rest, 'monitor', 'status=' + status) : cfg.rest + 'monitor'; // restQuery: plain permalinks already carry ?rest_route= (1.1.3, Codex)
       fetch(url, { method: 'POST', headers: { 'X-WP-Nonce': cfg.nonce } })
         .then(r => r.json().then(d => ({ ok: r.ok, d })))
         .then(({ ok, d }) => {
@@ -2911,18 +2905,19 @@ export default function App({ suiteMode = false } = {}) {
                             </div>
                          )}
 
-                         {/* Unified status list: 3 always-visible expandable rows (Live / Out of Stock / 404). Live lazy-loads. */}
+                         {/* Unified status list: 4 always-visible expandable rows (Live / Out of Stock / 404 / No Answer). Live lazy-loads. No Answer = the check returned no verdict (1.1.3, Living In Beauty: 400 checked but 399 listed). */}
                          <div className="space-y-3 mb-6">
-                            {monitorHasMore && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">More flagged products exist than the 100 listed here. Replace or fix these first, then check again.</div>}
+                            {monitorHasMore && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Showing up to 100 products per status; at least one group has more. Replace or fix these first, then check again.</div>}
                             {replaceUnfinished.length > 0 && <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">An earlier replacement was interrupted before these posts were verified: {replaceUnfinished.join(', ')}. Their original content is kept in the recovery journal (option devdaffi_replace_journal). Open and check them; they are skipped by new replacements until then.</div>}
                             {[
                                { key: 'ok', label: 'Live', badge: 'text-emerald-700 bg-emerald-50 border-emerald-200', iconColor: 'text-emerald-600', hoverBtn: 'text-emerald-600 hover:text-emerald-900', icon: <Check size={16} className="stroke-[3]" /> },
                                { key: 'oos', label: 'Out of Stock', badge: 'text-amber-700 bg-amber-50 border-amber-200', iconColor: 'text-amber-600', hoverBtn: 'text-amber-600 hover:text-amber-900', icon: <AlertCircle size={16} />, refreshable: true },
                                { key: 'dead', label: '404', badge: 'text-red-700 bg-red-50 border-red-200', iconColor: 'text-red-600', hoverBtn: 'text-red-600 hover:text-red-900', icon: <X size={16} strokeWidth={3} />, refreshable: true },
+                               { key: 'unknown', label: 'No Answer', badge: 'text-slate-700 bg-slate-50 border-slate-200', iconColor: 'text-slate-500', hoverBtn: 'text-slate-600 hover:text-slate-900', icon: <HelpCircle size={16} />, refreshable: true },
                             ].map(grp => {
                                const isLive = grp.key === 'ok';
                                const items = isLive ? liveState.items : monitorProblems.filter(p => p.status === grp.key);
-                               const count = isLive ? monitorSummary.ok : (grp.key === 'oos' ? monitorSummary.oos : monitorSummary.dead);
+                               const count = isLive ? monitorSummary.ok : (grp.key === 'oos' ? monitorSummary.oos : (grp.key === 'dead' ? monitorSummary.dead : (monitorSummary.unknown || 0)));
                                const open = listOpen[grp.key] === true;
                                const q = (monitorSearch[grp.key] || '').trim().toLowerCase();
                                const shown = q ? items.filter(p => (p.asin || '').toLowerCase().includes(q)) : items;

@@ -497,7 +497,11 @@ if (!function_exists('devdcorev1_get_feeds')) {
     require_once __DIR__ . '/hub-report.php';
     require_once __DIR__ . '/hub-error-report.php'; // "Report this error" button + admin-ajax sender, core 1.7.0
     require_once __DIR__ . '/abilities.php'; // devdome-tools/get-connection (WP 6.9+ Abilities API), core 1.7.0
-    require_once __DIR__ . '/hub-update-heal.php'; // updates work on root-owned plugin folders, core 1.7.2
+    // Absent from the WordPress.org build (.wporg-strip): wp.org reviewers refuse any filter on the core upgrader
+    // (review R devdome-country-blocker/27Sep26), and wp.org installs are never root-owned. Self-hosted builds keep it.
+    if (file_exists(__DIR__ . '/hub-update-heal.php')) {
+        require_once __DIR__ . '/hub-update-heal.php'; // updates work on root-owned plugin folders, core 1.7.2
+    }
     // Absent from the WordPress.org build (.wporg-strip): a wp.org-distributed
     // plugin must never install or activate other plugins on the user's behalf, so the
     // hub links out to the product page instead (hub.php falls back when absent).

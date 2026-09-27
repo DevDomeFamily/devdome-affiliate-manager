@@ -7156,6 +7156,17 @@ const CircleAlert = createLucideIcon("CircleAlert", [
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
+const CircleHelp = createLucideIcon("CircleHelp", [
+  ["circle", { cx: "12", cy: "12", r: "10", key: "1mglay" }],
+  ["path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", key: "1u773s" }],
+  ["path", { d: "M12 17h.01", key: "p32p05" }]
+]);
+/**
+ * @license lucide-react v0.460.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */
 const Copy = createLucideIcon("Copy", [
   ["rect", { width: "14", height: "14", x: "8", y: "8", rx: "2", ry: "2", key: "17jyea" }],
   ["path", { d: "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2", key: "zix9uf" }]
@@ -8975,10 +8986,10 @@ function App({ suiteMode = false } = {}) {
   const runMonitor = reactExports.useCallback((status) => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg) return;
-    const isStatus = status === "oos" || status === "dead";
+    const isStatus = status === "oos" || status === "dead" || status === "unknown";
     if (isStatus) setMonitorRefresh(status);
     else setMonitorState("checking");
-    const url = cfg.rest + "monitor" + (isStatus ? "?status=" + status : "");
+    const url = isStatus ? restQuery(cfg.rest, "monitor", "status=" + status) : cfg.rest + "monitor";
     fetch(url, { method: "POST", headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
       if (!ok2 || !d || d.ok !== true || !d.summary) {
         window.alert(d && d.message || "The check could not run.");
@@ -10389,7 +10400,7 @@ function App({ suiteMode = false } = {}) {
                   checkJob.status === "stopped" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 flex gap-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => handleCheckControl("dismiss"), className: "px-3 py-1 text-xs font-bold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm", children: "Close" }) })
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3 mb-6", children: [
-                  monitorHasMore && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2", children: "More flagged products exist than the 100 listed here. Replace or fix these first, then check again." }),
+                  monitorHasMore && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2", children: "Showing up to 100 products per status; at least one group has more. Replace or fix these first, then check again." }),
                   replaceUnfinished.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2", children: [
                     "An earlier replacement was interrupted before these posts were verified: ",
                     replaceUnfinished.join(", "),
@@ -10398,11 +10409,12 @@ function App({ suiteMode = false } = {}) {
                   [
                     { key: "ok", label: "Live", badge: "text-emerald-700 bg-emerald-50 border-emerald-200", iconColor: "text-emerald-600", hoverBtn: "text-emerald-600 hover:text-emerald-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 16, className: "stroke-[3]" }) },
                     { key: "oos", label: "Out of Stock", badge: "text-amber-700 bg-amber-50 border-amber-200", iconColor: "text-amber-600", hoverBtn: "text-amber-600 hover:text-amber-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CircleAlert, { size: 16 }), refreshable: true },
-                    { key: "dead", label: "404", badge: "text-red-700 bg-red-50 border-red-200", iconColor: "text-red-600", hoverBtn: "text-red-600 hover:text-red-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 16, strokeWidth: 3 }), refreshable: true }
+                    { key: "dead", label: "404", badge: "text-red-700 bg-red-50 border-red-200", iconColor: "text-red-600", hoverBtn: "text-red-600 hover:text-red-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 16, strokeWidth: 3 }), refreshable: true },
+                    { key: "unknown", label: "No Answer", badge: "text-slate-700 bg-slate-50 border-slate-200", iconColor: "text-slate-500", hoverBtn: "text-slate-600 hover:text-slate-900", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(CircleHelp, { size: 16 }), refreshable: true }
                   ].map((grp) => {
                     const isLive = grp.key === "ok";
                     const items = isLive ? liveState.items : monitorProblems.filter((p2) => p2.status === grp.key);
-                    const count = isLive ? monitorSummary.ok : grp.key === "oos" ? monitorSummary.oos : monitorSummary.dead;
+                    const count = isLive ? monitorSummary.ok : grp.key === "oos" ? monitorSummary.oos : grp.key === "dead" ? monitorSummary.dead : monitorSummary.unknown || 0;
                     const open = listOpen[grp.key] === true;
                     const q2 = (monitorSearch[grp.key] || "").trim().toLowerCase();
                     const shown = q2 ? items.filter((p2) => (p2.asin || "").toLowerCase().includes(q2)) : items;

@@ -139,7 +139,7 @@ class DEVDAFFI_Monitor {
 	private static function check_via_server( $items ) {
 		$out  = array();
 		$resp = wp_remote_post( self::API . '/check-batch', array(
-			'timeout' => 90,
+			'timeout' => 240, // the service queues behind the ScrapingDog slot limit under load; a batch of 20 took up to ~80 s at 50 sites (2026-09-28)
 			'headers' => array( 'Content-Type' => 'application/json' ),
 			'body'    => wp_json_encode( array(
 				'items'      => $items,
@@ -209,7 +209,8 @@ class DEVDAFFI_Monitor {
 	 * One run checks every scanned product once, in batches of BATCH, like the Link Monitor / Safe Media Cleaner jobs:
 	 *  - state = option devdaffi_check_job (not autoloaded), every read uncached, every write a compare-and-swap on the
 	 *    stored value, so a tick that spent seconds on the service call can never overwrite a Pause / Cancel / newer run;
-	 *  - one tick at a time: an atomic INSERT IGNORE lock with an owner token, released only by its owner, stale after 2 min;
+	 *  - one tick at a time: an atomic INSERT IGNORE lock with an owner token, released only by its owner, stale after 5 min
+	 *    (longer than the 240 s service wait, so a slow batch is never stolen by a second worker);
 	 *  - continuation with no page open: a WP-Cron single event + a fire-and-forget loopback POST to our own tick route,
 	 *    armed at shutdown after every batch (the SMC 1.0.6 pattern), so the chain carries on with no visitor and no tab.
 	 */
@@ -217,7 +218,7 @@ class DEVDAFFI_Monitor {
 	const JOB_HOOK   = 'devdaffi_check_tick';
 	const JOB_LOCK   = 'devdaffi_check_tick_lock';
 	const JOB_KEY    = 'devdaffi_check_tick_key';
-	const RUN_BATCH  = 5; // small batches so the progress row moves every few seconds (the hourly auto check keeps BATCH)
+	const RUN_BATCH  = 50; // one service call per tick (the service maximum); a tick lasts as long as its slowest Amazon fetch, so 50 = ~17 min per 1,000 products, measured 2026-09-28 (5 = ~70 min, 20 = ~32 min)
 
 	/** The stored job, array() when none. Always from the database: another request may have changed it a moment ago. */
 	public static function job_get() {
@@ -289,13 +290,15 @@ class DEVDAFFI_Monitor {
 		return false;
 	}
 
-	/* ---- tick lock: INSERT IGNORE = atomic test-and-set; value "time|token"; stale after 2 minutes; owner-only release ---- */
+	/* ---- tick lock: INSERT IGNORE = atomic test-and-set; value "time|token"; stale after LOCK_STALE; owner-only release ---- */
+
+	const LOCK_STALE = 5 * MINUTE_IN_SECONDS; // must exceed the service timeout above
 
 	private static function lock_acquire() {
 		global $wpdb;
 		$mine = time() . '|' . str_replace( '.', '', uniqid( '', true ) );
 		$held = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::JOB_LOCK ) );
-		if ( null !== $held && time() - (int) $held > 2 * MINUTE_IN_SECONDS ) {
+		if ( null !== $held && time() - (int) $held > self::LOCK_STALE ) {
 			// a tick that died: only the caller that still sees exactly this value removes it
 			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", self::JOB_LOCK, (string) $held ) );
 		}
@@ -321,7 +324,7 @@ class DEVDAFFI_Monitor {
 	public static function lock_held() {
 		global $wpdb;
 		$held = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::JOB_LOCK ) );
-		return null !== $held && time() - (int) $held <= 2 * MINUTE_IN_SECONDS;
+		return null !== $held && time() - (int) $held <= self::LOCK_STALE;
 	}
 
 	/* ---- continuation: cron event + loopback POST at shutdown (SMC 1.0.6 pattern) ---- */
@@ -475,6 +478,9 @@ class DEVDAFFI_Monitor {
 		$token = self::lock_acquire();
 		if ( '' === $token ) {
 			return self::job_progress(); // another tick is on it
+		}
+		if ( function_exists( 'set_time_limit' ) ) {
+			set_time_limit( 300 ); // the service wait below may take up to 240 s; hosts that count I/O time would kill the tick and strand the lock (Codex 2026-09-28)
 		}
 		// Re-read under the lock: a pause / cancel / new run committed between the first read and the lock must win here,
 		// before any service call is made (Codex round 3).
@@ -783,16 +789,24 @@ class DEVDAFFI_Monitor {
 		$status = self::table();
 		$limit  = max( 1, min( 5000, (int) $limit ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables; limit int.
-		$asins = $wpdb->get_col( $wpdb->prepare(
-			"SELECT DISTINCT i.asin, s.status FROM $index i INNER JOIN $status s ON s.asin = i.asin
-			 WHERE s.status IN ('dead','oos') ORDER BY s.status, i.asin LIMIT %d",
-			$limit + 1
-		) ); // s.status is selected too: ORDER BY a column outside a DISTINCT list is refused under ONLY_FULL_GROUP_BY (round 7); get_col() takes the first column
-		$asins    = is_array( $asins ) ? $asins : array();
-		$has_more = count( $asins ) > $limit;
-		if ( $has_more ) {
-			array_pop( $asins );
+		// The limit applies PER STATUS (1.1.3, Codex): one shared limit let 100 dead/OOS products hide every
+		// "No Answer" product while its counter stayed positive.
+		$asins    = array();
+		$has_more = false;
+		foreach ( array( 'dead', 'oos', 'unknown' ) as $st ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- constant tables; prepared values.
+			$part = $wpdb->get_col( $wpdb->prepare(
+				"SELECT DISTINCT i.asin FROM $index i INNER JOIN $status s ON s.asin = i.asin
+				 WHERE s.status = %s ORDER BY i.asin LIMIT %d",
+				$st,
+				$limit + 1
+			) );
+			$part = is_array( $part ) ? $part : array();
+			if ( count( $part ) > $limit ) {
+				$has_more = true;
+				array_pop( $part );
+			}
+			$asins = array_merge( $asins, $part );
 		}
 		if ( empty( $asins ) ) {
 			return array( 'items' => array(), 'has_more' => false );
@@ -938,7 +952,7 @@ class DEVDAFFI_Monitor {
 	 */
 	public static function recheck_status( $status, $limit = 50 ) {
 		global $wpdb;
-		$status = in_array( $status, array( 'oos', 'dead' ), true ) ? $status : 'dead';
+		$status = in_array( $status, array( 'oos', 'dead', 'unknown' ), true ) ? $status : 'dead';
 		$index  = DEVDAFFI_Scanner::table();
 		$tbl    = self::table();
 		$limit  = max( 1, min( 100, (int) $limit ) );

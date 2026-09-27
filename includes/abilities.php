@@ -668,8 +668,8 @@ function devdaffi_ability_run_link_scan( $input = array() ) {
 function devdaffi_ability_check_link_status( $input = array() ) {
 	$input  = is_array( $input ) ? $input : array();
 	$status = isset( $input['status'] ) ? (string) $input['status'] : '';
-	if ( '' !== $status && ! in_array( $status, array( 'oos', 'dead' ), true ) ) {
-		return new WP_Error( 'devdaffi_invalid_input', __( 'status must be empty (next batch), oos or dead (re-check the flagged ones).', 'devdome-affiliate-manager' ) );
+	if ( '' !== $status && ! in_array( $status, array( 'oos', 'dead', 'unknown' ), true ) ) {
+		return new WP_Error( 'devdaffi_invalid_input', __( 'status must be empty (next batch), oos, dead or unknown (re-check that group).', 'devdome-affiliate-manager' ) );
 	}
 	$ok = devdaffi_ability_confirmed( $input, __( 'The check sends the scanned ASINs and the site identity to api.devdome.com and uses the monthly quota of the account.', 'devdome-affiliate-manager' ) );
 	if ( is_wp_error( $ok ) ) {
@@ -863,9 +863,9 @@ function devdaffi_register_abilities() {
 		$empty, array( 'type' => 'object', 'properties' => array( 'links' => $int(), 'pages' => $int(), 'last_scan' => $int( 'Unix time, 0 = never.' ), 'summary' => $summary_out, 'scan_auto' => $bool( '' ), 'scan_frequency' => $int(), 'scan_frequency_unit' => $str(), 'service_state' => $str(), 'connected' => $bool( '' ) ) ),
 		'devdaffi_ability_get_link_radar', 'read' );
 
-	$reg( 'devdome-affiliate-manager/get-link-problems', __( 'List dead and out-of-stock links', 'devdome-affiliate-manager' ),
-		__( 'Every product the monitor flagged dead (404) or out of stock, one entry per ASIN with the Amazon URL, the product title when known, and every post, page or product that links it (with edit links). Read-only.', 'devdome-affiliate-manager' ),
-		array( 'type' => 'object', 'properties' => array( 'limit' => $int( 'Max rows read, 1 to 1000, default 100.' ) ), 'additionalProperties' => false ),
+	$reg( 'devdome-affiliate-manager/get-link-problems', __( 'List dead, out-of-stock and unanswered links', 'devdome-affiliate-manager' ),
+		__( 'Every product the monitor flagged dead (404), out of stock, or unknown (the check gave no answer yet), one entry per ASIN with the Amazon URL, the product title when known, and every post, page or product that links it (with edit links). Read-only.', 'devdome-affiliate-manager' ),
+		array( 'type' => 'object', 'properties' => array( 'limit' => $int( 'Max products per status (dead, out of stock, unknown), 1 to 1000, default 100; has_more is true when any group has more.' ) ), 'additionalProperties' => false ),
 		array( 'type' => 'object', 'properties' => array( 'problems' => array( 'type' => 'array', 'items' => $link_item ), 'has_more' => $bool( 'More flagged products exist than limit; raise limit or use list-links-by-status.' ), 'summary' => $summary_out ) ),
 		'devdaffi_ability_get_link_problems', 'read' );
 
@@ -917,7 +917,7 @@ function devdaffi_register_abilities() {
 
 	$reg( 'devdome-affiliate-manager/check-link-status', __( 'Check link status with DevDome', 'devdome-affiliate-manager' ),
 		__( 'Ask the DevDome Link Radar service (api.devdome.com) whether scanned products are live, out of stock or dead (the Check now button): without status the next batch of up to 20 unchecked or oldest-checked ASINs; with status oos or dead the flagged ones are re-checked (up to 50) so fixed products flip back to live. Sends the ASINs, their stores and the site identity; needs a linked DevDome account and uses its monthly quota, so it requires confirm: true (ask the user first); service_state says whether the service answered, refused (connect), the quota is used up, or it was unavailable (then nothing was written). Not idempotent.', 'devdome-affiliate-manager' ),
-		array( 'type' => 'object', 'properties' => array_merge( array( 'status' => array( 'type' => 'string', 'enum' => array( 'oos', 'dead' ), 'description' => 'Omit for the next batch; oos or dead to re-check the flagged ones.' ) ), $confirm( 'Must be true: ASINs and the site identity are sent to api.devdome.com and the account quota is used.' ) ), 'required' => array( 'confirm' ), 'additionalProperties' => false ),
+		array( 'type' => 'object', 'properties' => array_merge( array( 'status' => array( 'type' => 'string', 'enum' => array( 'oos', 'dead', 'unknown' ), 'description' => 'Omit for the next batch; oos, dead or unknown (no answer yet) to re-check that group.' ) ), $confirm( 'Must be true: ASINs and the site identity are sent to api.devdome.com and the account quota is used.' ) ), 'required' => array( 'confirm' ), 'additionalProperties' => false ),
 		array( 'type' => 'object', 'properties' => array( 'summary' => $summary_out, 'service_state' => $str(), 'problems' => array( 'type' => 'array', 'items' => $link_item ), 'has_more' => $bool( '' ), 'note' => $str() ) ),
 		'devdaffi_ability_check_link_status', 'modify', false );
 

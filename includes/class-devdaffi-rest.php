@@ -260,7 +260,7 @@ class DEVDAFFI_Rest {
 	public function run_monitor( WP_REST_Request $req ) {
 		// status=oos|dead → re-check only those (fixed ones flip back to Live); else a normal batch.
 		$status  = $req->get_param( 'status' );
-		$summary = in_array( $status, array( 'oos', 'dead' ), true )
+		$summary = in_array( $status, array( 'oos', 'dead', 'unknown' ), true )
 			? DEVDAFFI_Monitor::recheck_status( $status )
 			: DEVDAFFI_Monitor::check_batch();
 		$p = DEVDAFFI_Monitor::get_problems( 100 );
