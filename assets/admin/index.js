@@ -8403,6 +8403,192 @@ const SearchableDropdown = React.memo(({ options, onSelect, onBulkSelect, onBulk
     ] })
   ] });
 });
+const copyText = (text) => {
+  let ta2;
+  let ok2 = false;
+  const focused = document.activeElement;
+  try {
+    ta2 = document.createElement("textarea");
+    ta2.value = text;
+    ta2.readOnly = true;
+    ta2.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+    document.body.appendChild(ta2);
+    ta2.focus();
+    ta2.select();
+    ta2.setSelectionRange(0, text.length);
+    ok2 = document.execCommand("copy") === true;
+  } catch (e) {
+    ok2 = false;
+  } finally {
+    if (ta2) ta2.remove();
+    try {
+      if (focused && focused.focus) focused.focus({ preventScroll: true });
+    } catch (e) {
+    }
+  }
+  if (ok2) return Promise.resolve(true);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).then(() => true, () => false);
+  }
+  return Promise.resolve(false);
+};
+const CopyButton = ({ text, label = "Copy", success = "Copied", iconOnly = false, className, size = 12 }) => {
+  const [result, setResult] = reactExports.useState("");
+  const timer = reactExports.useRef(null);
+  const seq = reactExports.useRef(0);
+  reactExports.useEffect(() => () => {
+    clearTimeout(timer.current);
+    seq.current++;
+  }, []);
+  const handle = (e) => {
+    e.stopPropagation();
+    const id2 = ++seq.current;
+    clearTimeout(timer.current);
+    const pending = copyText(text);
+    pending.then((ok2) => {
+      if (seq.current !== id2) return;
+      setResult(ok2 ? "ok" : "failed");
+      timer.current = setTimeout(() => {
+        if (seq.current === id2) setResult("");
+      }, 1500);
+    });
+  };
+  const message = result === "failed" ? "Copy failed" : result === "ok" ? success : label;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "button",
+    {
+      type: "button",
+      onClick: handle,
+      disabled: !text,
+      title: message,
+      "aria-label": message,
+      className,
+      style: result === "failed" ? { color: "#dc2626" } : void 0,
+      children: [
+        result === "ok" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size }),
+        (!iconOnly || result !== "") && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { "aria-live": "polite", children: message })
+      ]
+    }
+  );
+};
+const csvCell = (value) => {
+  let t2 = String(value == null ? "" : value).replace(/[\r\n]+/g, " ");
+  if (/^\s*[=+\-@]/.test(t2)) t2 = "'" + t2;
+  return '"' + t2.replace(/"/g, '""') + '"';
+};
+const saveCsv = (file) => {
+  const host = window.parent && window.parent.document ? window.parent : window;
+  const a = host.document.createElement("a");
+  a.href = file.url;
+  a.download = file.name;
+  host.document.body.appendChild(a);
+  try {
+    a.click();
+  } finally {
+    a.remove();
+  }
+};
+const DownloadCsv = ({ status, expected }) => {
+  const [progress, setProgress] = reactExports.useState(null);
+  const [error, setError] = reactExports.useState("");
+  const [note, setNote] = reactExports.useState("");
+  const [file, setFile] = reactExports.useState(null);
+  const request = reactExports.useRef(null);
+  const objectUrl = reactExports.useRef(null);
+  reactExports.useEffect(() => () => {
+    if (request.current) request.current.abort();
+    if (objectUrl.current) {
+      try {
+        (window.parent || window).URL.revokeObjectURL(objectUrl.current);
+      } catch (e) {
+      }
+    }
+  }, []);
+  const download = async () => {
+    if (request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    setProgress(0);
+    setError("");
+    setNote("");
+    setFile(null);
+    const host = window.parent && window.parent.document ? window.parent : window;
+    if (objectUrl.current) {
+      try {
+        host.URL.revokeObjectURL(objectUrl.current);
+      } catch (e) {
+      }
+      objectUrl.current = null;
+    }
+    try {
+      const cfg = window.DEVDAFFI_ADMIN;
+      if (!cfg) throw new Error("The WordPress connection is unavailable.");
+      const collect = async () => {
+        const got = /* @__PURE__ */ new Map();
+        let offset = 0;
+        let more = true;
+        while (more) {
+          const r2 = await fetch(restQuery(cfg.rest, "monitor/by-status", "status=" + encodeURIComponent(status) + "&limit=200&offset=" + offset), {
+            headers: { "X-WP-Nonce": cfg.nonce },
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: controller.signal
+          });
+          const d = await r2.json();
+          if (!r2.ok || !d || !Array.isArray(d.items) || typeof d.has_more !== "boolean") throw new Error(d && d.message || "The list could not be read.");
+          if (d.has_more && !d.items.length) throw new Error("The list did not advance.");
+          d.items.forEach((p2) => got.set(p2.asin, p2));
+          offset += d.items.length;
+          more = d.has_more;
+          setProgress(got.size);
+        }
+        return got;
+      };
+      let items = await collect();
+      if (typeof expected === "number" && expected >= 0 && items.size !== expected && !controller.signal.aborted) items = await collect();
+      if (controller.signal.aborted) return;
+      const short = typeof expected === "number" && expected >= 0 && items.size !== expected ? ` (${items.size} of ${expected}, the list changed while exporting; run it again)` : "";
+      setNote(short);
+      const labels = { ok: "Live", oos: "Out of Stock", dead: "404", unknown: "No Answer" };
+      const lines = ["ASIN,Store,Status,Product title,Pages used,Page URLs"];
+      items.forEach((p2) => {
+        const urls = [...new Set((p2.pages || []).map((pg2) => pg2.permalink).filter(Boolean))];
+        lines.push([p2.asin, p2.domain || "amazon.com", labels[p2.status] || p2.status, p2.title || "", urls.length, urls.join(" | ")].map(csvCell).join(","));
+      });
+      const url = host.URL.createObjectURL(new host.Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+      objectUrl.current = url;
+      const ready = { url, name: "link-radar-" + (labels[status] || status).toLowerCase().replace(/\s+/g, "-") + ".csv" };
+      setFile(ready);
+      saveCsv(ready);
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e.message || "Download failed.");
+    } finally {
+      if (request.current === controller) request.current = null;
+      if (!controller.signal.aborted) setProgress(null);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-2", onClick: (e) => e.stopPropagation(), children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: download,
+        disabled: progress !== null,
+        title: error || "Export every ASIN in this group with the pages it is used on" + note,
+        "aria-live": "polite",
+        className: `text-[11px] font-medium flex items-center gap-1 bg-white border border-indigo-100 px-2.5 py-1.5 rounded-md shadow-sm transition-colors disabled:opacity-50 ${error ? "text-red-600" : "text-indigo-600 hover:text-indigo-800"}`,
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(FileText, { size: 12 }),
+          progress !== null ? `Loading ${progress} ASINs...` : error ? "Download failed, retry" : note ? "Downloaded" + note : "Download CSV"
+        ]
+      }
+    ),
+    file && /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: file.url, download: file.name, onClick: (e) => {
+      e.preventDefault();
+      saveCsv(file);
+    }, className: "text-[11px] text-indigo-600 underline", children: "Save CSV again" })
+  ] });
+};
 function App({ suiteMode = false } = {}) {
   var _a, _b, _c, _d, _e, _f;
   const [bottomTarget, setBottomTarget] = reactExports.useState(null);
@@ -8960,27 +9146,35 @@ function App({ suiteMode = false } = {}) {
       });
     }).catch(() => window.alert("The replacement could not be completed.")).finally(() => setReplaceBusy(null));
   }, [replaceVal]);
+  const liveRef = reactExports.useRef(liveState);
+  liveRef.current = liveState;
+  const liveSeq = reactExports.useRef(0);
   const loadLive = reactExports.useCallback((append) => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg) return;
-    setLiveState((s) => {
-      const offset = append ? s.offset : 0;
-      fetch(restQuery(cfg.rest, "monitor/by-status", "status=ok&limit=50&offset=" + offset), { headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
-        if (!ok2 || !d || !Array.isArray(d.items)) {
-          setLiveState((prev) => ({ ...prev, loading: false }));
-          window.alert(d && d.message || "The live list could not be read.");
-          return;
-        }
-        const newItems = d.items;
-        setLiveState((prev) => ({
-          items: append ? [...prev.items, ...newItems] : newItems,
-          loading: false,
-          offset: offset + newItems.length,
-          hasMore: !!(d && d.has_more),
-          loaded: true
-        }));
-      }).catch(() => setLiveState((prev) => ({ ...prev, loading: false })));
-      return { ...s, loading: true };
+    const cur = liveRef.current;
+    if (append && cur.loading) return;
+    const offset = append ? cur.offset : 0;
+    const limit = append ? 50 : Math.min(200, Math.max(50, cur.items.length));
+    const seq = ++liveSeq.current;
+    setLiveState((s) => ({ ...s, loading: true }));
+    fetch(restQuery(cfg.rest, "monitor/by-status", "status=ok&limit=" + limit + "&offset=" + offset), { headers: { "X-WP-Nonce": cfg.nonce } }).then((r2) => r2.json().then((d) => ({ ok: r2.ok, d }))).then(({ ok: ok2, d }) => {
+      if (seq !== liveSeq.current) return;
+      if (!ok2 || !d || !Array.isArray(d.items)) {
+        setLiveState((prev) => ({ ...prev, loading: false }));
+        window.alert(d && d.message || "The live list could not be read.");
+        return;
+      }
+      const newItems = d.items;
+      setLiveState((prev) => ({
+        items: append ? [...prev.items, ...newItems] : newItems,
+        loading: false,
+        offset: offset + newItems.length,
+        hasMore: !!(d && d.has_more),
+        loaded: true
+      }));
+    }).catch(() => {
+      if (seq === liveSeq.current) setLiveState((prev) => ({ ...prev, loading: false }));
     });
   }, []);
   const runMonitor = reactExports.useCallback((status) => {
@@ -9029,6 +9223,10 @@ function App({ suiteMode = false } = {}) {
     }
     if (p2.usage && typeof p2.usage.used === "number") setSvcUsage((prev) => prev && prev.usage ? { ...prev, usage: { ...prev.usage, ...p2.usage } } : prev);
   }, []);
+  reactExports.useEffect(() => {
+    if (!listOpen.ok) return;
+    setTimeout(() => loadLive(false), 0);
+  }, [listOpen.ok, monitorSummary && monitorSummary.ok]);
   const refreshAfterCheck = reactExports.useCallback(() => {
     const cfg = window.DEVDAFFI_ADMIN;
     if (!cfg) return;
@@ -9956,12 +10154,7 @@ function App({ suiteMode = false } = {}) {
             ] }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "Shortcode", hint: "Paste it into any post or page.", tooltip: "Paste this into any post or page to render the button. In generated mode, replace YOUR_ASIN with the product's Amazon ASIN.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "flex-1 px-3 py-2 bg-gray-900 text-emerald-300 rounded-lg text-[13px] font-mono select-all break-all", children: formData.btn1LinkMode === "custom" && !/\{ASIN\}/i.test(formData.btn1Link || "") ? "[devdaffi_button]" : '[devdaffi_button asin="YOUR_ASIN"]' }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => {
-                if (navigator.clipboard) navigator.clipboard.writeText(formData.btn1LinkMode === "custom" && !/\{ASIN\}/i.test(formData.btn1Link || "") ? "[devdaffi_button]" : '[devdaffi_button asin="YOUR_ASIN"]');
-              }, className: "shrink-0 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[12px] font-bold text-gray-700 hover:bg-gray-50 shadow-sm flex items-center gap-1.5", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 14 }),
-                " Copy"
-              ] })
+              /* @__PURE__ */ jsxRuntimeExports.jsx(CopyButton, { size: 14, text: formData.btn1LinkMode === "custom" && !/\{ASIN\}/i.test(formData.btn1Link || "") ? "[devdaffi_button]" : '[devdaffi_button asin="YOUR_ASIN"]', className: "shrink-0 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[12px] font-bold text-gray-700 hover:bg-gray-50 shadow-sm flex items-center gap-1.5" })
             ] }) })
           ] })
         ] }) }) }) }),
@@ -10442,7 +10635,6 @@ function App({ suiteMode = false } = {}) {
                     const toggle = () => {
                       const willOpen = !open;
                       setListOpen((s) => ({ ...s, [grp.key]: willOpen }));
-                      if (willOpen && isLive && !liveState.loaded) loadLive(false);
                     };
                     return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full flex items-center justify-between gap-3 px-4 py-3 bg-gray-50/80", children: [
@@ -10466,21 +10658,16 @@ function App({ suiteMode = false } = {}) {
                         ] }),
                         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 shrink-0", children: [
                           open && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                              "button",
+                            /* @__PURE__ */ jsxRuntimeExports.jsx(
+                              CopyButton,
                               {
-                                type: "button",
-                                onClick: () => {
-                                  const t2 = shown.map((p2) => p2.asin).join("\n");
-                                  if (t2 && navigator.clipboard) navigator.clipboard.writeText(t2);
-                                },
-                                className: "text-[11px] font-medium flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-100 px-2.5 py-1.5 rounded-md shadow-sm transition-colors",
-                                children: [
-                                  /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 12 }),
-                                  " Copy ASINs"
-                                ]
+                                text: shown.map((p2) => p2.asin).join("\n"),
+                                label: "Copy ASINs",
+                                success: `Copied ${shown.length}`,
+                                className: "text-[11px] font-medium flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-100 px-2.5 py-1.5 rounded-md shadow-sm transition-colors"
                               }
                             ),
+                            /* @__PURE__ */ jsxRuntimeExports.jsx(DownloadCsv, { status: grp.key, expected: count }),
                             /* @__PURE__ */ jsxRuntimeExports.jsx(
                               "input",
                               {
@@ -10505,7 +10692,10 @@ function App({ suiteMode = false } = {}) {
                             /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-4 py-2.5 text-left whitespace-nowrap", children: "ASIN" }),
                             /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-2 py-2.5 text-left whitespace-nowrap", children: "Store" }),
                             /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-2 py-2.5 text-left whitespace-nowrap", children: "Pages" }),
-                            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-4 py-2.5 text-left w-full", children: "Product" })
+                            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-4 py-2.5 text-left w-full", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 normal-case tracking-normal", children: [
+                              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "uppercase tracking-wider", children: "Product" }),
+                              /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { direction: "bottom", alignment: "left", text: "A product title shows for products imported with the DevDome Product Importer. For links found in your posts or in WooCommerce product URLs no title is stored, so the row says title not available. The ASIN, the store and the pages it is used on identify the product; the arrow icon opens it on Amazon." })
+                            ] }) })
                           ] }) }),
                           /* @__PURE__ */ jsxRuntimeExports.jsxs("tbody", { className: "divide-y divide-slate-100 bg-white", children: [
                             isLive && liveState.loading && shown.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: "4", className: "px-4 py-4 text-sm text-gray-500", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-2", children: [
@@ -10521,10 +10711,7 @@ function App({ suiteMode = false } = {}) {
                                 /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { className: "hover:bg-slate-50 transition-colors cursor-pointer", onClick: () => setExpandedProblems((s) => ({ ...s, [p2.asin]: !s[p2.asin] })), children: [
                                   /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2.5 whitespace-nowrap", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
                                     /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono text-[13px] font-bold text-gray-900 select-all cursor-text", onClick: (e) => e.stopPropagation(), children: p2.asin }),
-                                    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: (e) => {
-                                      e.stopPropagation();
-                                      if (navigator.clipboard) navigator.clipboard.writeText(p2.asin);
-                                    }, title: "Copy ASIN", className: "text-gray-400 hover:text-indigo-600 transition-colors", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Copy, { size: 13 }) }),
+                                    /* @__PURE__ */ jsxRuntimeExports.jsx(CopyButton, { text: p2.asin, label: "Copy ASIN", iconOnly: true, size: 13, className: "text-gray-400 hover:text-indigo-600 transition-colors inline-flex items-center gap-1" }),
                                     /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: p2.amazon_url, target: "_blank", rel: "noopener noreferrer", onClick: (e) => e.stopPropagation(), title: "Open on Amazon", className: "text-gray-400 hover:text-indigo-600 transition-colors", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { size: 13 }) })
                                   ] }) }),
                                   /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-2 py-2.5 text-[13px] font-semibold text-gray-800 whitespace-nowrap", children: store }),

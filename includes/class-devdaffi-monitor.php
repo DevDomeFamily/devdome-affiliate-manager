@@ -218,7 +218,7 @@ class DEVDAFFI_Monitor {
 	const JOB_HOOK   = 'devdaffi_check_tick';
 	const JOB_LOCK   = 'devdaffi_check_tick_lock';
 	const JOB_KEY    = 'devdaffi_check_tick_key';
-	const RUN_BATCH  = 50; // one service call per tick (the service maximum); a tick lasts as long as its slowest Amazon fetch, so 50 = ~17 min per 1,000 products, measured 2026-09-28 (5 = ~70 min, 20 = ~32 min)
+	const RUN_BATCH  = 10; // one service call per tick; the progress row moves every tick, so 10 keeps it moving (owner 2026-09-30: 50 jumped from 0 straight to 21). Measured 2026-09-28: 5 = ~70 min per 1,000 products, 20 = ~32 min, 50 = ~17 min
 
 	/** The stored job, array() when none. Always from the database: another request may have changed it a moment ago. */
 	public static function job_get() {

@@ -1,106 +1,108 @@
-=== DevDome Affiliate Manager: Amazon Affiliate Links & Amazon Associates ===
+=== DevDome Affiliate Manager: Amazon Affiliate Plugin for Amazon Associates ===
 Contributors: devdome
-Tags: amazon affiliate, amazon associates, amazon affiliate links, amazon buy button, affiliate links
+Tags: amazon affiliate, amazon associates, amazon affiliate plugin, amazon affiliate links, affiliate links
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Amazon affiliates: auto-tag affiliate links, track Amazon clicks and add an Amazon buy button. Supports WooCommerce external product links.
+WordPress Amazon Affiliate Plugin: tag Amazon affiliate links, check Amazon product links, replace dead links, earn commission as an Amazon Associate.
 
 == Description ==
 
-DevDome Affiliate Manager is an affiliate link manager for WordPress. It applies Amazon tracking IDs, creates buttons and keyword links, counts clicks and indexes product links. Optional hosted services check product status, find replacements at click time and route visitors to regional stores.
+DevDome Affiliate Manager is a WordPress Amazon Affiliate Plugin for site owners who want to earn commission from Amazon product links. Add your Amazon Associates tracking IDs and manage supported Amazon affiliate links across 22 marketplaces.
+
+Tag existing links, turn selected keywords into affiliate links and track clicks by tag or keyword rule. Check product status, recover dead or unavailable product links and route visitors to regional Amazon stores. WooCommerce external products are supported too.
+
+Local tagging, buttons, keyword linking, scanning, click counting and built-in bot detection work without an account or API key. Hosted status checks, replacement searches and geo routing require a connected DevDome account. These tools help Amazon affiliates maintain their links; they do not guarantee earnings.
 
 = Amazon Associates Tagging =
 
-Add tracking IDs under Affiliate Tags. Choose from 22 Amazon marketplaces and apply tags sitewide or to selected posts, pages and post categories. Supported Amazon links in individual content pages are tagged when displayed, without rewriting stored content.
+Under Affiliate Tags, apply your Amazon tag sitewide or to selected posts, pages and post categories. Supported links are tagged when individual content pages display, without rewriting stored content.
 
-SEO Attributes offers No Follow, Follow and Sponsored. No Follow and Sponsored are enabled by default. Open in New Tab is off by default. The click tracker honours it, with a same-tab fallback if the browser blocks the new window.
+SEO Attributes offers No Follow, Follow and Sponsored; No Follow and Sponsored default to on. Open in New Tab defaults to off. Click tracking honours it, falling back to the same tab if a new window is blocked.
 
 = Amazon Buy Button =
 
-Use `[devdaffi_button asin="YOUR_ASIN"]` for a generated product button. Replace YOUR_ASIN with the product's ten-character ASIN.
+Create an Amazon button with [devdaffi_button asin="YOUR_ASIN"], using the product's ten-character ASIN.
 
-Under Button Link, Edit selects the generated marketplace. Regenerate resets it to amazon.com. Don't add tag omits tagging and click interception for generated shortcode buttons.
+Under Button Link, Edit selects the marketplace; Regenerate resets it to amazon.com. Don't add tag skips tagging and click interception for generated shortcode buttons.
 
-Use Custom Link accepts a custom URL. An `{ASIN}` placeholder is filled from the shortcode's ASIN. A fixed custom URL needs only `[devdaffi_button]`. Non-Amazon custom destinations do not receive an affiliate tag.
+Use Custom Link accepts a URL with an {ASIN} placeholder. For a fixed URL, use [devdaffi_button]. Non-Amazon destinations receive no affiliate tag.
 
 = Amazon Geo Localization =
 
-OneLink Alternative enables regional routing and is off by default. Hosted geo routing requires a connected DevDome account and a usable service response.
+OneLink Alternative defaults to off. Regional routing needs a connected account and usable service response. Without a configured tag for the visitor's local store, the original destination remains.
 
-If you have not configured a tag for the visitor's local store, the original destination stays in use. On `/go`, a tag that is not yours is replaced with a configured tag or removed. See External services for the visitor IP and other fields sent.
+On /go, another owner's tag is replaced with yours or removed. External services lists the visitor IP and other fields sent.
 
 = Amazon Link Checker and Link Radar =
 
-Use Scan Site For Amazon Links to build the local index and Scan Again to refresh it. The scanner reads published content and WooCommerce product URLs. It indexes full Amazon product URLs containing an ASIN, not shortlinks or generated shortcode buttons. WooCommerce product URLs can also contain supported ASIN paths on your own site's host.
+Scan Site For Amazon Links builds a local index; Scan Again refreshes it. Scans read published content and WooCommerce product URLs, indexing full Amazon product URLs containing an ASIN. Shortlinks and generated shortcode buttons are excluded. Supported ASIN paths on your own host can also be indexed from WooCommerce product URLs.
 
-Stock & 404 Monitor contains Check Now. It checks every scanned product in batches of up to 20, with a live progress row and an updating usage meter. Pause stops further batches, Resume continues them and Cancel ends the run. A running batch may finish first.
+In Stock & 404 Monitor, Check Now checks scanned products in batches, showing progress and usage. Pause stops further batches, Resume continues and Cancel ends the run. An active batch may finish first.
 
-The run continues on the server through WP-Cron and a loopback request when the page closes. Its progress appears when you return. Background continuation depends on those requests being able to run. Account, quota or service errors can stop the run.
+The run can continue after you close the page through WP-Cron and a loopback request, with progress shown when you return. Those requests must work; account, quota or service errors can stop it.
 
-Auto Re-Scan is off by default. While enabled, it re-reads content at the interval set by Scan every and checks up to 20 indexed products every hour through DevDome. Content scans are local; status checks use the account's monthly allowance.
+Auto Re-Scan defaults to off. When enabled, it scans content at the Scan every interval and checks up to 20 indexed products hourly through DevDome. Local scans use no service allowance; status checks do.
 
-Status results include live, out of stock, dead and unknown. A failed service request leaves existing statuses unchanged. The screen describes the free allowance as 500 checks and searches per month per account and displays usage returned by the service.
+Results include live, out of stock, dead and unknown. Failed service requests preserve existing statuses. The screen states 500 free checks and searches monthly per account and displays service-reported usage.
 
 = Dead Amazon Link Recovery =
 
-Out of Stock Redirect and 404 ASIN Redirect independently enable recovery for products with those stored statuses. Each offers Best replacement product or Search page. Replacement mode asks for a live replacement at click time and falls back to Amazon search when none is returned. With recovery disabled for that status, it leaves the destination unchanged.
+Out of Stock Redirect and 404 ASIN Redirect independently control recovery for stored statuses. Choose Best replacement product or Search page. Replacement mode searches at click time, falling back to Amazon search if no replacement returns. Disabled recovery leaves that destination unchanged.
 
-For bulk replacement, type the replacement into New ASIN. The button reads Replace on N pages, with the actual page count and singular wording for one page. It replaces matching ASINs in indexed content and product URLs, then checks the new ASIN. It does not choose the ASIN for you. These content edits persist.
+For bulk replacement, enter your chosen New ASIN. Replace on N pages shows the affected page count, using singular wording for one page. It replaces matching ASINs in indexed content and product URLs, then checks the new ASIN. These content edits persist.
 
 = Affiliate Link Tracking =
 
-The plugin routes supported Amazon clicks through `/go` for affiliate link tracking. Each Affiliate Tags and Keyword Rules row shows Clicks and Unique. Tag totals belong to the affiliate ID; rule totals belong to the rule.
+Supported Amazon clicks pass through /go. Affiliate Tags and Keyword Rules show Clicks and Unique. Affiliate click tracking totals belong to the affiliate ID or individual rule, not each product.
 
-Unique means one visitor per tag or rule per 30 minutes, identified by a hash of IP address and browser user agent. Click statistics do not store those raw values. Blocked bots have one global counter, not a counter per tag. Rate limits cap counted clicks from a repeatedly requesting address.
+Unique counts one visitor per tag or rule per 30 minutes using a hash of IP address and browser user agent. Statistics do not store either raw value. Rate limits cap counted clicks from repeatedly requesting addresses. Blocked bots have one global counter.
 
-The endpoint validates Amazon destinations and resolves supported shortlinks before tagging. A shortlink that cannot resolve to an allowed storefront is refused.
+Destinations are validated; supported shortlinks resolve before tagging. Shortlinks that cannot resolve to an allowed Amazon storefront are refused.
 
 = Keyword Auto-Linker and Blog Monetization =
 
-Keyword Rules can turn selected words and phrases into Amazon affiliate links when content is displayed. This supports affiliate marketing without manually inserting each link.
+Keyword Rules supports affiliate marketing by linking selected words and phrases when content displays. It defaults to off.
 
-Rules offer Exact Match and Broad Match, case sensitivity and link limits. Existing links are always excluded. Configurable exclusions cover headings, code, blockquotes and the first paragraph. The auto-linker is off by default.
+Choose Exact Match or Broad Match, case sensitivity and link limits. Existing links are always excluded. Optional exclusions cover headings, code, blockquotes and the first paragraph. Add your own affiliate disclosure where you publish links.
 
 = WooCommerce Affiliate Product Links =
 
-WooCommerce Buttons is off by default. Enable it to route supported external product buttons through `/go` for tagging and click counting.
+WooCommerce Buttons defaults to off. Enable it to tag and count supported external product button clicks through /go.
 
-Generated buttons keep the Amazon store their product link already names. Supported same-site links without a store use the marketplace selected under Button Link. A configured custom button URL applies to matching product buttons even when WooCommerce Buttons is off. Button rewriting happens at display time.
+Generated buttons retain the Amazon store named in the product link. Supported same-site links without a store use the Button Link marketplace. A configured custom button URL applies to matching buttons even with WooCommerce Buttons off. Rewriting happens at display time.
 
 = Click Protection =
 
-Under Bot Protection, Block Bot Clicks is on by default. It stops detected bots before redirecting and counting affiliate clicks. Detection uses the built-in bot list plus shared bot signatures and Spamhaus DROP ranges when those are available in the shared cache. This WordPress.org build does not download the shared feeds.
+Block Bot Clicks defaults to on, stopping detected bots before redirects and click counting. It uses a built-in list, plus shared bot signatures and Spamhaus DROP ranges when cached locally. This build downloads no shared feeds.
 
-Outdated Browsers contains Block outdated browsers. It is off by default and applies only while Block Bot Clicks is on. It treats desktop Chrome, Chromium-based Edge and Firefox below version 125 as bots. Chrome and Edge 109 and Firefox 115 ESR are allowed. Phones and tablets are excluded from this version rule.
+Block outdated browsers defaults to off and requires Block Bot Clicks. It treats desktop Chrome, Chromium-based Edge and Firefox below version 125 as bots, except Chrome and Edge 109 and Firefox 115 ESR. Phones and tablets are excluded.
 
-Bots Blocked shows the global blocked-click count, subject to the click rate limit. Reset Count clears it. Redirect Method selects JavaScript + 302 (Recommended), JavaScript Only or 302 Redirect Only.
+Bots Blocked is a global counter subject to click rate limits; Reset Count clears it. Redirect Method offers JavaScript + 302 (Recommended), JavaScript Only or 302 Redirect Only.
 
 = Amazon Mobile App Opener =
 
-Mobile App is off by default. On Android, Force Amazon App (Intent) attempts to open the Amazon app and falls back to the browser. Web Only (Recommended) uses the normal web destination.
+Mobile App defaults to off. Android's Force Amazon App (Intent) attempts to open the app, falling back to the browser. Web Only (Recommended) uses the web destination.
 
-The optional iOS setting offers an Open in Safari link in detected in-app browsers. The link opens a new browsing context; the plugin cannot guarantee that the device chooses Safari.
+The optional iOS setting provides an Open in Safari link in detected in-app browsers. It opens a new browsing context but cannot guarantee Safari.
 
 = AI and Agent Support =
 
-On WordPress 6.9 and newer, the plugin registers 16 WordPress Abilities. Compatible agents can use them when your site exposes them.
+On WordPress 6.9+, 16 WordPress Abilities let compatible agents work with settings, tags, keyword rules, scans, statuses, quota, ASIN replacement and click counters when your site exposes them. Administrator permissions are required. Agent status checks cover a bounded batch, not the screen's complete Check Now run.
 
-They cover settings, tags, keyword rules, scans, product statuses, quota, ASIN replacement and click counters. They require administrator permissions. The status-check ability checks a bounded batch; it does not start the screen's complete Check Now run.
+Confirmation is required for ASIN replacement, tag or rule removal, counter resets, remote status checks, enabling geo routing or scheduled checks, disabling bot blocking, and saving lists that remove tags or rules.
 
-ASIN replacement, tag or rule removal, counter resets and remote status checks require confirmation. Enabling geo routing or scheduled checks, disabling bot blocking, or saving lists that remove tags or rules also requires confirmation.
-
-Ability output excludes account email addresses, the site token and server paths. Remote checks and replacement checks use the services disclosed below.
+Output excludes account email addresses, the site token and server paths. Remote status and replacement checks use the disclosed services.
 
 = Independent Amazon Associates Tool =
 
-Choose the features you need for amazon affiliation and link maintenance.
+Use this affiliate link manager for Amazon affiliation and link maintenance.
 
-DevDome Affiliate Manager is an independent project. Amazon, Amazon Associates and OneLink are trademarks of Amazon.com, Inc. or its affiliates. This plugin is not endorsed by, sponsored by or otherwise affiliated with Amazon.
+DevDome Affiliate Manager is independent. Amazon, Amazon Associates and OneLink are trademarks of Amazon.com, Inc. or its affiliates. This plugin is not endorsed by, sponsored by or otherwise affiliated with Amazon.
 
 == External services ==
 
@@ -225,6 +227,17 @@ Yes. Use `[devdaffi_button asin="YOUR_ASIN"]`, or `[devdaffi_button]` with a fix
 5. Click Protection: Bot Protection and the global Bots Blocked counter.
 
 == Changelog ==
+
+= 1.1.4 =
+
+* Link Radar: Copy ASINs and the per-row copy now confirm with Copied. The copy runs through the browser's classic copy command first and the clipboard API second, so it works in every browser.
+* Link Radar: the Product column explains why a product title can be unavailable.
+* Link Radar: the Live list loads when the group was left open and the page is refreshed, and follows the count while a check runs.
+* Check Now: 10 products per step instead of 50, so the progress row moves every few seconds.
+* Link Radar: Download CSV per group exports every ASIN of that status with its store, product title and the pages it is used on.
+* Listing text updated: title, short description, tags and introduction.
+* DevDome Dashboard health: a high share of blocked bot clicks no longer counts as an issue. Blocked clicks mean Click Protection is working; the count stays on the tile.
+* Shared DevDome library 1.7.8: the first time you open any DevDome plugin screen, a small one-time hint points at the Report a bug button. It is shown once per user across all DevDome plugins and is recorded through a nonce-checked request.
 
 = 1.1.3 =
 * Link Radar: a fourth row, No Answer, lists products the status check could not classify, so every checked product is visible. The row has its own Check again button.

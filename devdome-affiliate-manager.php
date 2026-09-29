@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DevDome Affiliate Manager
  * Description: Amazon affiliate link management: auto-tagging, geo-localization, dead-link recovery, link-health monitoring, keyword auto-linking, click protection, and WooCommerce support.
- * Version: 1.1.3
+ * Version: 1.1.4
  * Author: DevDome
  * Author URI: https://devdome.com
  * Text Domain: devdome-affiliate-manager
@@ -20,7 +20,7 @@ if ( file_exists( __DIR__ . '/wporg-build.php' ) ) {
 	require __DIR__ . '/wporg-build.php';
 }
 
-define( 'DEVDAFFI_VERSION', '1.1.3' );
+define( 'DEVDAFFI_VERSION', '1.1.4' );
 define( 'DEVDAFFI_FILE', __FILE__ );
 define( 'DEVDAFFI_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEVDAFFI_URL', plugin_dir_url( __FILE__ ) );
@@ -77,39 +77,6 @@ add_filter( 'devdome_click_fraud_sources', function ( $sources ) {
 	return $sources;
 } );
 
-// Affiliate / Money monitor (DevDome Site Monitor): report affiliate click quality so a
-// high bot-click ratio surfaces. Decoupled — Site Monitor applies the filter on its cron.
-add_filter( 'devdome_money_signals', function ( $signals ) {
-	if ( ! class_exists( 'DEVDAFFI_Clicks' ) ) {
-		return $signals;
-	}
-	$all   = DEVDAFFI_Clicks::get_all();
-	$bots  = DEVDAFFI_Clicks::get_bots_blocked();
-	if ( ! is_array( $all ) || null === $bots ) {
-		return $signals; // a failed read is not "no clicks"
-	}
-	$total = 0; // all clicks incl. the bots bucket, rule attribution rows excluded (round 3: they diluted the bot ratio)
-	foreach ( $all as $k => $n ) {
-		if ( 0 !== strpos( (string) $k, '__rule__' ) ) {
-			$total += (int) $n;
-		}
-	}
-	$bots  = (int) $bots;
-	$ratio = $total > 0 ? $bots / $total : 0;
-	$high  = ( $ratio >= 0.4 && $bots >= 20 );
-	$signals[] = array(
-		'key'            => 'aff_click_quality',
-		'label'          => 'Affiliate click quality',
-		'status'         => $high ? 'warn' : 'good',
-		'value'          => $total > 0 ? round( $ratio * 100 ) . '% bots' : 'No clicks yet',
-		'problem'        => $high ? round( $ratio * 100 ) . '% of affiliate clicks were bots.' : '',
-		'why_it_matters' => 'A high bot-click ratio means scrapers are inflating your link stats.',
-		'fix'            => 'DevDome Bot Protection already filters them — consider blocking repeat offenders.',
-		'actions'        => array(),
-	);
-	return $signals;
-} );
-
 // DevDome Tools hub: register this plugin in the suite dashboard.
 add_filter( 'devdcorev1_suite_register', function ( $r ) {
 	$r['devdome-affiliate-manager'] = array(
@@ -139,11 +106,8 @@ add_filter( 'devdcorev1_suite_register', function ( $r ) {
 			$bots   = ( is_array( $sum ) && isset( $sum['bots'] ) ) ? (int) $sum['bots'] : 0;
 			$total  = $clicks + $bots;
 			$score  = $total > 0 ? (int) round( $clicks / $total * 100 ) : null; // % human (clean) clicks
-			$issues = array();
-			if ( null !== $score && $score < 80 ) {
-				$issues[] = array( 'problem' => 'High bot-click ratio on your affiliate links.', 'why_it_matters' => 'Bot clicks distort your click stats.', 'fix' => 'Keep Bot Protection on and in Live mode.', 'actions' => array( array( 'label' => 'Open Affiliate Manager', 'href' => $href ) ) );
-			}
-			return array( 'score' => $score, 'status' => ( null === $score ? 'idle' : ( $score >= 80 ? 'good' : 'warn' ) ), 'scope_label' => 'Affiliate', 'summary' => '', 'issues' => $issues );
+			$issues = array(); // blocked bot clicks are Click Protection working, never an issue (owner, 29 Sep 2026)
+			return array( 'score' => $score, 'status' => ( null === $score ? 'idle' : 'good' ), 'scope_label' => 'Affiliate', 'summary' => '', 'issues' => $issues );
 		},
 	);
 	return $r;

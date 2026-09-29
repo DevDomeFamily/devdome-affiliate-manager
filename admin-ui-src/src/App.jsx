@@ -892,6 +892,162 @@ const SearchableDropdown = React.memo(({ options, onSelect, onBulkSelect, onBulk
 });
 
 // --- Main App Component ---
+// Copy to the clipboard from inside the srcdoc iframe (Living In Beauty report 2026-09-28: "Copy ASINs, nothing happens").
+// The classic execCommand copy runs first, synchronously inside the click (it works in this frame); the clipboard API
+// is the second try, still inside the gesture. Callers show the outcome, never a silent nothing.
+const copyText = (text) => {
+  // 1. The classic copy first, synchronously inside the click (Safari drops the gesture after an await, Codex 2026-09-29).
+  let ta;
+  let ok = false;
+  const focused = document.activeElement;
+  try {
+    ta = document.createElement('textarea');
+    ta.value = text;
+    ta.readOnly = true;
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    ok = document.execCommand('copy') === true;
+  } catch (e) {
+    ok = false;
+  } finally {
+    if (ta) ta.remove();
+    try { if (focused && focused.focus) focused.focus({ preventScroll: true }); } catch (e) { /* nothing to restore */ }
+  }
+  if (ok) return Promise.resolve(true);
+  // 2. The clipboard API, started in the same handler while the gesture is still active.
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).then(() => true, () => false);
+  }
+  return Promise.resolve(false);
+};
+
+// A copy button that says what happened: "Copied 30" for 1.5 s, or "Copy failed" in red.
+const CopyButton = ({ text, label = 'Copy', success = 'Copied', iconOnly = false, className, size = 12 }) => {
+  const [result, setResult] = useState('');
+  const timer = useRef(null);
+  const seq = useRef(0);
+  useEffect(() => () => { clearTimeout(timer.current); seq.current++; }, []);
+  const handle = (e) => {
+    e.stopPropagation();
+    const id = ++seq.current;
+    clearTimeout(timer.current);
+    const pending = copyText(text); // the clipboard call starts inside the gesture, before any state update
+    pending.then((ok) => {
+      if (seq.current !== id) return;
+      setResult(ok ? 'ok' : 'failed');
+      timer.current = setTimeout(() => { if (seq.current === id) setResult(''); }, 1500);
+    });
+  };
+  const message = result === 'failed' ? 'Copy failed' : result === 'ok' ? success : label;
+  return (
+    <button type="button" onClick={handle} disabled={!text} title={message} aria-label={message} className={className}
+      style={result === 'failed' ? { color: '#dc2626' } : undefined}>
+      {result === 'ok' ? <Check size={size} /> : <Copy size={size} />}
+      {(!iconOnly || result !== '') && <span aria-live="polite">{message}</span>}
+    </button>
+  );
+};
+
+const csvCell = (value) => {
+  let t = String(value == null ? '' : value).replace(/[\r\n]+/g, ' ');
+  if (/^\s*[=+\-@]/.test(t)) t = "'" + t; // a spreadsheet must not run a cell as a formula
+  return '"' + t.replace(/"/g, '""') + '"';
+};
+
+// The file is handed to the PARENT document: a download link inside an about:srcdoc frame is not reliable everywhere.
+const saveCsv = (file) => {
+  const host = window.parent && window.parent.document ? window.parent : window;
+  const a = host.document.createElement('a');
+  a.href = file.url;
+  a.download = file.name;
+  host.document.body.appendChild(a);
+  try { a.click(); } finally { a.remove(); }
+};
+
+// "Download CSV" per Link Radar group: every ASIN of that status (all pages of the list, not only the loaded ones),
+// one row per ASIN with every page it is used on (Living In Beauty 2026-09-28: "download where it is used").
+const DownloadCsv = ({ status, expected }) => {
+  const [progress, setProgress] = useState(null);
+  const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+  const [file, setFile] = useState(null);
+  const request = useRef(null);
+  const objectUrl = useRef(null);
+  useEffect(() => () => {
+    if (request.current) request.current.abort();
+    if (objectUrl.current) { try { (window.parent || window).URL.revokeObjectURL(objectUrl.current); } catch (e) { /* gone */ } }
+  }, []);
+  const download = async () => {
+    if (request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    setProgress(0); setError(''); setNote(''); setFile(null);
+    const host = window.parent && window.parent.document ? window.parent : window;
+    if (objectUrl.current) { try { host.URL.revokeObjectURL(objectUrl.current); } catch (e) { /* gone */ } objectUrl.current = null; }
+    try {
+      const cfg = window.DEVDAFFI_ADMIN;
+      if (!cfg) throw new Error('The WordPress connection is unavailable.');
+      const collect = async () => {
+        const got = new Map();
+        let offset = 0;
+        let more = true;
+        while (more) {
+          const r = await fetch(restQuery(cfg.rest, 'monitor/by-status', 'status=' + encodeURIComponent(status) + '&limit=200&offset=' + offset), {
+            headers: { 'X-WP-Nonce': cfg.nonce }, credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+          });
+          const d = await r.json();
+          if (!r.ok || !d || !Array.isArray(d.items) || typeof d.has_more !== 'boolean') throw new Error((d && d.message) || 'The list could not be read.');
+          if (d.has_more && !d.items.length) throw new Error('The list did not advance.');
+          d.items.forEach(p => got.set(p.asin, p));
+          offset += d.items.length;
+          more = d.has_more;
+          setProgress(got.size);
+        }
+        return got;
+      };
+      // The walk is by offset; a status that changes under it (a check is running) can skip a row. When the walk does
+      // not match the group's count, it runs once more; a second mismatch is said on the button, never hidden.
+      let items = await collect();
+      if (typeof expected === 'number' && expected >= 0 && items.size !== expected && !controller.signal.aborted) items = await collect();
+      if (controller.signal.aborted) return;
+      const short = typeof expected === 'number' && expected >= 0 && items.size !== expected ? ` (${items.size} of ${expected}, the list changed while exporting; run it again)` : '';
+      setNote(short);
+      const labels = { ok: 'Live', oos: 'Out of Stock', dead: '404', unknown: 'No Answer' };
+      const lines = ['ASIN,Store,Status,Product title,Pages used,Page URLs'];
+      items.forEach(p => {
+        const urls = [...new Set((p.pages || []).map(pg => pg.permalink).filter(Boolean))];
+        lines.push([p.asin, p.domain || 'amazon.com', labels[p.status] || p.status, p.title || '', urls.length, urls.join(' | ')].map(csvCell).join(','));
+      });
+      const url = host.URL.createObjectURL(new host.Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      objectUrl.current = url;
+      const ready = { url, name: 'link-radar-' + (labels[status] || status).toLowerCase().replace(/\s+/g, '-') + '.csv' };
+      setFile(ready);
+      saveCsv(ready);
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e.message || 'Download failed.');
+    } finally {
+      if (request.current === controller) request.current = null;
+      if (!controller.signal.aborted) setProgress(null);
+    }
+  };
+  return (
+    <span className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+      <button type="button" onClick={download} disabled={progress !== null}
+        title={error || ('Export every ASIN in this group with the pages it is used on' + note)} aria-live="polite"
+        className={`text-[11px] font-medium flex items-center gap-1 bg-white border border-indigo-100 px-2.5 py-1.5 rounded-md shadow-sm transition-colors disabled:opacity-50 ${error ? 'text-red-600' : 'text-indigo-600 hover:text-indigo-800'}`}>
+        <FileText size={12} />
+        {progress !== null ? `Loading ${progress} ASINs...` : error ? 'Download failed, retry' : (note ? 'Downloaded' + note : 'Download CSV')}
+      </button>
+      {file && (
+        <a href={file.url} download={file.name} onClick={(e) => { e.preventDefault(); saveCsv(file); }} className="text-[11px] text-indigo-600 underline">Save CSV again</a>
+      )}
+    </span>
+  );
+};
+
 export default function App({ suiteMode = false } = {}) {
   // Suite mode: the bottom slot in PI's Link Control to portal our remaining sections into.
   // Keeping one React tree (this component) so formData state stays shared across both slots.
@@ -1423,27 +1579,32 @@ export default function App({ suiteMode = false } = {}) {
   }, [replaceVal]);
 
   // Live row lazy-loads via /monitor/by-status?status=ok. append=true paginates ("Show more").
+  const liveRef = useRef(liveState); liveRef.current = liveState; // the current list, readable outside a state updater
+  const liveSeq = useRef(0); // every request gets a number; an answer that is not the latest request is dropped (Codex 2026-09-30)
   const loadLive = useCallback((append) => {
       const cfg = window.DEVDAFFI_ADMIN;
       if (!cfg) return;
-      setLiveState(s => {
-        const offset = append ? s.offset : 0;
-        fetch(restQuery(cfg.rest, 'monitor/by-status', 'status=ok&limit=50&offset=' + offset), { headers: { 'X-WP-Nonce': cfg.nonce } })
-          .then(r => r.json().then(d => ({ ok: r.ok, d })))
-          .then(({ ok, d }) => {
-            if (!ok || !d || !Array.isArray(d.items)) { setLiveState(prev => ({ ...prev, loading: false })); window.alert((d && d.message) || 'The live list could not be read.'); return; } // round 3
-            const newItems = d.items;
-            setLiveState(prev => ({
-              items: append ? [...prev.items, ...newItems] : newItems,
-              loading: false,
-              offset: offset + newItems.length,
-              hasMore: !!(d && d.has_more),
-              loaded: true,
-            }));
-          })
-          .catch(() => setLiveState(prev => ({ ...prev, loading: false })));
-        return { ...s, loading: true };
-      });
+      const cur = liveRef.current;
+      if (append && cur.loading) return; // one request at a time; a refresh replaces whatever is in flight
+      const offset = append ? cur.offset : 0;
+      const limit = append ? 50 : Math.min(200, Math.max(50, cur.items.length)); // a refresh keeps the rows already on screen
+      const seq = ++liveSeq.current;
+      setLiveState(s => ({ ...s, loading: true }));
+      fetch(restQuery(cfg.rest, 'monitor/by-status', 'status=ok&limit=' + limit + '&offset=' + offset), { headers: { 'X-WP-Nonce': cfg.nonce } })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+          if (seq !== liveSeq.current) return; // a newer request owns the list now
+          if (!ok || !d || !Array.isArray(d.items)) { setLiveState(prev => ({ ...prev, loading: false })); window.alert((d && d.message) || 'The live list could not be read.'); return; } // round 3
+          const newItems = d.items;
+          setLiveState(prev => ({
+            items: append ? [...prev.items, ...newItems] : newItems,
+            loading: false,
+            offset: offset + newItems.length,
+            hasMore: !!(d && d.has_more),
+            loaded: true,
+          }));
+        })
+        .catch(() => { if (seq === liveSeq.current) setLiveState(prev => ({ ...prev, loading: false })); });
   }, []);
 
   // status: 'oos' | 'dead' | 'unknown' re-checks only that group (fixed ones flip back to Live);
@@ -1486,6 +1647,13 @@ export default function App({ suiteMode = false } = {}) {
       if (p.summary) { setMonitorSummary(p.summary); setMonitorProblems(p.problems || []); setMonitorHasMore(!!p.has_more); }
       if (p.usage && typeof p.usage.used === 'number') setSvcUsage(prev => (prev && prev.usage) ? { ...prev, usage: { ...prev.usage, ...p.usage } } : prev); // live meter
   }, []);
+  useEffect(() => {
+    // An OPEN Live group always holds the current rows: on page load when the group was restored open from localStorage
+    // (owner 2026-09-30: "7 ASIN's Live", empty list, only a click ever loaded it), on every open, and whenever the Live
+    // count moves (a check tick, a run that finished while the page was away).
+    if (!listOpen.ok) return;
+    setTimeout(() => loadLive(false), 0); // loadLive serializes itself: a refresh replaces an in-flight request
+  }, [listOpen.ok, monitorSummary && monitorSummary.ok]); // eslint-disable-line react-hooks/exhaustive-deps
   const refreshAfterCheck = useCallback(() => {
       const cfg = window.DEVDAFFI_ADMIN;
       if (!cfg) return;
@@ -2389,7 +2557,7 @@ export default function App({ suiteMode = false } = {}) {
                             <SettingRow label="Shortcode" hint="Paste it into any post or page." tooltip="Paste this into any post or page to render the button. In generated mode, replace YOUR_ASIN with the product's Amazon ASIN.">
                                <div className="flex items-center gap-2">
                                   <code className="flex-1 px-3 py-2 bg-gray-900 text-emerald-300 rounded-lg text-[13px] font-mono select-all break-all">{(formData.btn1LinkMode === 'custom' && !/\{ASIN\}/i.test(formData.btn1Link || '')) ? '[devdaffi_button]' : '[devdaffi_button asin="YOUR_ASIN"]'}</code>
-                                  <button type="button" onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText((formData.btn1LinkMode === 'custom' && !/\{ASIN\}/i.test(formData.btn1Link || '')) ? '[devdaffi_button]' : '[devdaffi_button asin="YOUR_ASIN"]'); }} className="shrink-0 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[12px] font-bold text-gray-700 hover:bg-gray-50 shadow-sm flex items-center gap-1.5"><Copy size={14} /> Copy</button>
+                                  <CopyButton size={14} text={(formData.btn1LinkMode === 'custom' && !/\{ASIN\}/i.test(formData.btn1Link || '')) ? '[devdaffi_button]' : '[devdaffi_button asin="YOUR_ASIN"]'} className="shrink-0 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[12px] font-bold text-gray-700 hover:bg-gray-50 shadow-sm flex items-center gap-1.5" />
                                </div>
                             </SettingRow>
                         </div>
@@ -2939,7 +3107,6 @@ export default function App({ suiteMode = false } = {}) {
                                const toggle = () => {
                                   const willOpen = !open;
                                   setListOpen(s => ({ ...s, [grp.key]: willOpen }));
-                                  if (willOpen && isLive && !liveState.loaded) loadLive(false);
                                };
                                return (
                                   <div key={grp.key} className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
@@ -2958,10 +3125,9 @@ export default function App({ suiteMode = false } = {}) {
                                         <div className="flex items-center gap-2 shrink-0">
                                            {open && (
                                               <>
-                                                 <button type="button" onClick={() => { const t = shown.map(p => p.asin).join('\n'); if (t && navigator.clipboard) navigator.clipboard.writeText(t); }}
-                                                    className="text-[11px] font-medium flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-100 px-2.5 py-1.5 rounded-md shadow-sm transition-colors">
-                                                    <Copy size={12} /> Copy ASINs
-                                                 </button>
+                                                 <CopyButton text={shown.map(p => p.asin).join('\n')} label="Copy ASINs" success={`Copied ${shown.length}`}
+                                                    className="text-[11px] font-medium flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-100 px-2.5 py-1.5 rounded-md shadow-sm transition-colors" />
+                                                 <DownloadCsv status={grp.key} expected={count} />
                                                  <input type="text" placeholder="Search ASIN..." value={monitorSearch[grp.key] || ''}
                                                     onClick={(e) => e.stopPropagation()}
                                                     onChange={e => { setMonitorSearch(s => ({ ...s, [grp.key]: e.target.value })); setMPage(1); }}
@@ -2983,7 +3149,7 @@ export default function App({ suiteMode = false } = {}) {
                                                        <th className="px-4 py-2.5 text-left whitespace-nowrap">ASIN</th>
                                                        <th className="px-2 py-2.5 text-left whitespace-nowrap">Store</th>
                                                        <th className="px-2 py-2.5 text-left whitespace-nowrap">Pages</th>
-                                                       <th className="px-4 py-2.5 text-left w-full">Product</th>
+                                                       <th className="px-4 py-2.5 text-left w-full"><span className="inline-flex items-center gap-1.5 normal-case tracking-normal"><span className="uppercase tracking-wider">Product</span><InfoTooltip direction="bottom" alignment="left" text="A product title shows for products imported with the DevDome Product Importer. For links found in your posts or in WooCommerce product URLs no title is stored, so the row says title not available. The ASIN, the store and the pages it is used on identify the product; the arrow icon opens it on Amazon." /></span></th>
                                                     </tr>
                                                  </thead>
                                                  <tbody className="divide-y divide-slate-100 bg-white">
@@ -3003,7 +3169,7 @@ export default function App({ suiteMode = false } = {}) {
                                                                 <td className="px-4 py-2.5 whitespace-nowrap">
                                                                    <div className="flex items-center gap-2">
                                                                       <span className="font-mono text-[13px] font-bold text-gray-900 select-all cursor-text" onClick={e => e.stopPropagation()}>{p.asin}</span>
-                                                                      <button type="button" onClick={(e) => { e.stopPropagation(); if (navigator.clipboard) navigator.clipboard.writeText(p.asin); }} title="Copy ASIN" className="text-gray-400 hover:text-indigo-600 transition-colors"><Copy size={13} /></button>
+                                                                      <CopyButton text={p.asin} label="Copy ASIN" iconOnly size={13} className="text-gray-400 hover:text-indigo-600 transition-colors inline-flex items-center gap-1" />
                                                                       <a href={p.amazon_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title="Open on Amazon" className="text-gray-400 hover:text-indigo-600 transition-colors"><ExternalLink size={13} /></a>
                                                                    </div>
                                                                 </td>
