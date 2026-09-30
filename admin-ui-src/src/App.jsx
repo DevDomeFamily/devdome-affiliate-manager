@@ -1048,6 +1048,53 @@ const DownloadCsv = ({ status, expected }) => {
   );
 };
 
+// The DevDome Account card = the DevDome Tools / Bot Protection / Link Monitor Connect card, one to one (owner 2026-09-30):
+// the disclosure sits next to the Connect press, so every connection from this plugin carries it (wp.org Guideline 7).
+// The app lives in an about:srcdoc iframe: the forms post to the parent window (target=_top).
+// The whole app is one <form> that cancels submits, so the card posts through a form it creates in the PARENT document
+// (same origin; the parent is the wp-admin page, so the browser navigates there).
+const postToParent = (action, fields) => {
+  const host = window.parent && window.parent.document ? window.parent : window;
+  const f = host.document.createElement('form');
+  f.method = 'post'; f.action = action; f.style.display = 'none';
+  Object.keys(fields).forEach((k) => { const i = host.document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = fields[k]; f.appendChild(i); });
+  host.document.body.appendChild(f);
+  f.submit();
+};
+
+const AccountCard = ({ svc }) => {
+  if (!svc || !svc.connect_url || svc.connected) return null; // connected = nothing to show; disconnect lives in the DevDome hub
+  const connected = false;
+  const badge = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 46, height: 46, borderRadius: 12, color: '#fff', fontWeight: 800, letterSpacing: '-1px', fontSize: 18, flex: 'none',
+    background: connected ? '#10b981' : 'linear-gradient(150deg,#3b82f6,#2563eb 55%,#1d4ed8)', boxShadow: connected ? 'none' : '0 7px 15px -6px rgba(37,99,235,.6)' };
+  const btn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 14, fontWeight: 600, borderRadius: 8, padding: '9px 14px', lineHeight: 1, whiteSpace: 'nowrap', cursor: 'pointer', border: '1px solid transparent', width: '100%' };
+  return (
+    <div id="devdaffi-account" className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-wrap items-center gap-4">
+      <span style={badge}>DD</span>
+      {!connected ? (
+        <>
+          <div className="flex-1 min-w-[320px]">
+            <strong className="block text-[14.5px] font-bold text-slate-900">Connect this site to your DevDome account</strong>
+            <span className="text-[12.5px] text-slate-600 leading-snug">Connect sends your domain, token, DevDome plugins and software versions to api.devdome.com. Features then send ASINs, stores and search keywords; opt-in store routing sends visitor IPs. See the readme's External services section for details. <a href="https://devdome.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">Privacy Policy</a> &middot; <a href="https://devdome.com/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">Terms of Service</a></span>
+          </div>
+          <div className="flex flex-col gap-2" style={{ flex: '0 1 272px' }}>
+            <button type="button" data-devdaffi-connect="1" onClick={() => postToParent(svc.connect_url, { devdcorev1_inventory: '1' })} style={{ ...btn, color: '#fff', background: '#2563eb', borderColor: '#2563eb', boxShadow: '0 4px 10px -3px rgba(37,99,235,.5)' }}>Connect your DevDome account</button>
+            <p className="text-[11px] text-gray-400 text-center m-0">Opens devdome.com to sign in, then links this site.</p>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+};
+
+// One line for the features that need the account, pointing at the card instead of connecting blind.
+const NeedsAccount = ({ what }) => (
+  <div className="flex flex-wrap items-center gap-3 mb-4 text-[13px] text-gray-600">
+    <span>{what} Requires a DevDome account.</span>
+    <a href="#devdaffi-account" onClick={(e) => { e.preventDefault(); const root = e.currentTarget.getRootNode(); const el = (root.querySelector ? root.querySelector('#devdaffi-account') : null) || document.getElementById('devdaffi-account'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="font-semibold text-indigo-600 hover:text-indigo-800">Connect it in the DevDome Account section</a>
+  </div>
+);
+
 export default function App({ suiteMode = false } = {}) {
   // Suite mode: the bottom slot in PI's Link Control to portal our remaining sections into.
   // Keeping one React tree (this component) so formData state stays shared across both slots.
@@ -2472,12 +2519,7 @@ export default function App({ suiteMode = false } = {}) {
                         </div>
 
                         <div>
-                            {svcUsage && !svcUsage.usage && (
-                                <div className="flex flex-wrap items-center gap-3 mb-4">
-                                    <a href={svcUsage.connect_url} target="_top" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', textDecoration: 'none', cursor: 'pointer', lineHeight: 1, whiteSpace: 'nowrap', transition: '.12s', color: '#fff', background: '#2563eb', border: '1px solid #2563eb', boxShadow: '0 4px 10px -3px rgba(37,99,235,.5)' }} onMouseEnter={e => { e.currentTarget.style.background = '#1d4ed8'; e.currentTarget.style.borderColor = '#1d4ed8'; }} onMouseLeave={e => { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb'; }}>Connect your DevDome account</a>
-                                    <span className="text-[13px] text-gray-500">Store routing runs on DevDome servers. Requires a DevDome account.</span>
-                                </div>
-                            )}
+   {svcUsage && !svcUsage.usage && <NeedsAccount what="Store routing runs on DevDome servers." />}
                             <div className={svcUsage && !svcUsage.usage ? 'opacity-50 pointer-events-none' : ''}>
                             <SettingRow label="OneLink Alternative" hint="Visitors land on their local Amazon store with your tag for it." tooltip="Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.">
                                 <SimpleCheckbox name="geoEnabled" checked={formData.geoEnabled} onChange={handleCheckboxChange} label="Auto-redirect visitors to their local Amazon store" />
@@ -2969,6 +3011,15 @@ export default function App({ suiteMode = false } = {}) {
                </Section>
             </div>
 
+            {/* --- DevDome Account: the Connect card with its disclosure, only while the site is not connected --- */}
+            {svcUsage && svcUsage.connect_url && !svcUsage.connected && (
+            <div className={suiteMode ? 'mt-8' : 'py-6'}>
+               <Section title="DevDome Account" icon={Link}>
+                  <AccountCard svc={svcUsage} />
+               </Section>
+            </div>
+            )}
+
             {/* --- Link Radar Section --- */}
             <div className={suiteMode ? 'mt-8' : 'py-6'}>
                <Section title="Link Radar" icon={Activity}>
@@ -3048,6 +3099,9 @@ export default function App({ suiteMode = false } = {}) {
                                  </div>
                              )}
                          </div>
+                         {svcUsage && svcUsage.state === 'connect' && (
+                            <Hint text="Check Now needs a connected DevDome account: the status checks run on DevDome servers. Connect it in the DevDome Account section above; scanning stays local and free." className="mb-4" />
+                         )}
 
                          {/* Check Now progress row (Link Monitor scan pattern: message + count, bar, Pause / Cancel) */}
                          {checkJob && checkJob.status && (
@@ -3276,12 +3330,7 @@ export default function App({ suiteMode = false } = {}) {
                          </div>
 
                          {/* Redirects need the account: live checks flag OOS/404 and replacement search runs server-side. */}
-                         {svcUsage && !svcUsage.usage && (
-                            <div className="flex flex-wrap items-center gap-3 mb-4">
-                               <a href={svcUsage.connect_url} target="_top" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, borderRadius: '8px', padding: '10px 20px', textDecoration: 'none', cursor: 'pointer', lineHeight: 1, whiteSpace: 'nowrap', transition: '.12s', color: '#fff', background: '#2563eb', border: '1px solid #2563eb', boxShadow: '0 4px 10px -3px rgba(37,99,235,.5)' }} onMouseEnter={e => { e.currentTarget.style.background = '#1d4ed8'; e.currentTarget.style.borderColor = '#1d4ed8'; }} onMouseLeave={e => { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb'; }}>Connect your DevDome account</a>
-                               <span className="text-[13px] text-gray-500">Live checks run on DevDome servers. Requires a DevDome account.</span>
-                            </div>
-                         )}
+{svcUsage && !svcUsage.usage && <NeedsAccount what="Live checks run on DevDome servers." />}
                          {svcUsage && svcUsage.usage && (
                             <SettingRow label={`${(typeof svcUsage.usage.plan === 'string' && svcUsage.usage.plan ? svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1) : 'Your')} Plan`} hint="Link checks used this month on your DevDome account." tooltip="The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.">
                                <div className="flex flex-wrap items-center gap-3 pt-2.5">

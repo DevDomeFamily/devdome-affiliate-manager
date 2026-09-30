@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DevDome Affiliate Manager
  * Description: Amazon affiliate link management: auto-tagging, geo-localization, dead-link recovery, link-health monitoring, keyword auto-linking, click protection, and WooCommerce support.
- * Version: 1.1.4
+ * Version: 1.1.5
  * Author: DevDome
  * Author URI: https://devdome.com
  * Text Domain: devdome-affiliate-manager
@@ -20,7 +20,7 @@ if ( file_exists( __DIR__ . '/wporg-build.php' ) ) {
 	require __DIR__ . '/wporg-build.php';
 }
 
-define( 'DEVDAFFI_VERSION', '1.1.4' );
+define( 'DEVDAFFI_VERSION', '1.1.5' );
 define( 'DEVDAFFI_FILE', __FILE__ );
 define( 'DEVDAFFI_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEVDAFFI_URL', plugin_dir_url( __FILE__ ) );

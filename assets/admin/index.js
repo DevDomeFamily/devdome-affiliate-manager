@@ -8589,6 +8589,71 @@ const DownloadCsv = ({ status, expected }) => {
     }, className: "text-[11px] text-indigo-600 underline", children: "Save CSV again" })
   ] });
 };
+const postToParent = (action, fields) => {
+  const host = window.parent && window.parent.document ? window.parent : window;
+  const f2 = host.document.createElement("form");
+  f2.method = "post";
+  f2.action = action;
+  f2.style.display = "none";
+  Object.keys(fields).forEach((k2) => {
+    const i = host.document.createElement("input");
+    i.type = "hidden";
+    i.name = k2;
+    i.value = fields[k2];
+    f2.appendChild(i);
+  });
+  host.document.body.appendChild(f2);
+  f2.submit();
+};
+const AccountCard = ({ svc }) => {
+  if (!svc || !svc.connect_url || svc.connected) return null;
+  const badge = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    color: "#fff",
+    fontWeight: 800,
+    letterSpacing: "-1px",
+    fontSize: 18,
+    flex: "none",
+    background: "linear-gradient(150deg,#3b82f6,#2563eb 55%,#1d4ed8)",
+    boxShadow: "0 7px 15px -6px rgba(37,99,235,.6)"
+  };
+  const btn = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 14, fontWeight: 600, borderRadius: 8, padding: "9px 14px", lineHeight: 1, whiteSpace: "nowrap", cursor: "pointer", border: "1px solid transparent", width: "100%" };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { id: "devdaffi-account", className: "bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-wrap items-center gap-4", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: badge, children: "DD" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-[320px]", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "block text-[14.5px] font-bold text-slate-900", children: "Connect this site to your DevDome account" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-[12.5px] text-slate-600 leading-snug", children: [
+          "Connect sends your domain, token, DevDome plugins and software versions to api.devdome.com. Features then send ASINs, stores and search keywords; opt-in store routing sends visitor IPs. See the readme's External services section for details. ",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "https://devdome.com/privacy-policy", target: "_blank", rel: "noopener noreferrer", className: "text-indigo-600 underline", children: "Privacy Policy" }),
+          " · ",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "https://devdome.com/terms-of-service", target: "_blank", rel: "noopener noreferrer", className: "text-indigo-600 underline", children: "Terms of Service" })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2", style: { flex: "0 1 272px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", "data-devdaffi-connect": "1", onClick: () => postToParent(svc.connect_url, { devdcorev1_inventory: "1" }), style: { ...btn, color: "#fff", background: "#2563eb", borderColor: "#2563eb", boxShadow: "0 4px 10px -3px rgba(37,99,235,.5)" }, children: "Connect your DevDome account" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-gray-400 text-center m-0", children: "Opens devdome.com to sign in, then links this site." })
+      ] })
+    ] })
+  ] });
+};
+const NeedsAccount = ({ what }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 mb-4 text-[13px] text-gray-600", children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+    what,
+    " Requires a DevDome account."
+  ] }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: "#devdaffi-account", onClick: (e) => {
+    e.preventDefault();
+    const root = e.currentTarget.getRootNode();
+    const el2 = (root.querySelector ? root.querySelector("#devdaffi-account") : null) || document.getElementById("devdaffi-account");
+    if (el2) el2.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, className: "font-semibold text-indigo-600 hover:text-indigo-800", children: "Connect it in the DevDome Account section" })
+] });
 function App({ suiteMode = false } = {}) {
   var _a, _b, _c, _d, _e, _f;
   const [bottomTarget, setBottomTarget] = reactExports.useState(null);
@@ -10063,16 +10128,7 @@ function App({ suiteMode = false } = {}) {
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-            svcUsage && !svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 mb-4", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: svcUsage.connect_url, target: "_top", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "14px", fontWeight: 600, borderRadius: "8px", padding: "10px 20px", textDecoration: "none", cursor: "pointer", lineHeight: 1, whiteSpace: "nowrap", transition: ".12s", color: "#fff", background: "#2563eb", border: "1px solid #2563eb", boxShadow: "0 4px 10px -3px rgba(37,99,235,.5)" }, onMouseEnter: (e) => {
-                e.currentTarget.style.background = "#1d4ed8";
-                e.currentTarget.style.borderColor = "#1d4ed8";
-              }, onMouseLeave: (e) => {
-                e.currentTarget.style.background = "#2563eb";
-                e.currentTarget.style.borderColor = "#2563eb";
-              }, children: "Connect your DevDome account" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-gray-500", children: "Store routing runs on DevDome servers. Requires a DevDome account." })
-            ] }),
+            svcUsage && !svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(NeedsAccount, { what: "Store routing runs on DevDome servers." }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: svcUsage && !svcUsage.usage ? "opacity-50 pointer-events-none" : "", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "OneLink Alternative", hint: "Visitors land on their local Amazon store with your tag for it.", tooltip: "Visitors from a country where you have a regional tag are sent to that store (with the matching product when it exists, otherwise its search page). Everyone else keeps the original link, so a commission is never lost.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "geoEnabled", checked: formData.geoEnabled, onChange: handleCheckboxChange, label: "Auto-redirect visitors to their local Amazon store" }) }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: "WooCommerce Buttons", hint: "External product buttons that link to Amazon go through your tags.", tooltip: "For WooCommerce external or affiliate products whose button links to an Amazon product: the button is sent through the plugin's tracked link, so it carries the right Associates tag for the visitor's store and counts as a click. Off by default.", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleCheckbox, { name: "wooButtonRewrite", checked: formData.wooButtonRewrite, onChange: handleCheckboxChange, label: "Route external product buttons through your tags" }) })
           ] }),
@@ -10503,6 +10559,7 @@ function App({ suiteMode = false } = {}) {
                 ] }) }) })
               }
             ) }),
+            svcUsage && svcUsage.connect_url && !svcUsage.connected && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "mt-8" : "py-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { title: "DevDome Account", icon: Link, children: /* @__PURE__ */ jsxRuntimeExports.jsx(AccountCard, { svc: svcUsage }) }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: suiteMode ? "mt-8" : "py-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { title: "Link Radar", icon: Activity, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-white p-6 sm:p-8 rounded-xl border border-gray-200 shadow-sm space-y-12", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-b border-gray-100 pb-4 mb-6", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-bold text-gray-800", children: "Link Scanner" }) }),
@@ -10580,6 +10637,7 @@ function App({ suiteMode = false } = {}) {
                     /* @__PURE__ */ jsxRuntimeExports.jsx(InfoTooltip, { text: "Checks every scanned product with DevDome in small batches: live, out of stock or 404. You can pause, resume or cancel; the run keeps going on the server if you leave this page. Uses your monthly Link Radar checks. Needs a scan and a connected DevDome account.", alignment: "right" })
                   ] })
                 ] }),
+                svcUsage && svcUsage.state === "connect" && /* @__PURE__ */ jsxRuntimeExports.jsx(Hint, { text: "Check Now needs a connected DevDome account: the status checks run on DevDome servers. Connect it in the DevDome Account section above; scanning stays local and free.", className: "mb-4" }),
                 checkJob && checkJob.status && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-6", "data-check-status": checkJob.status, children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-[12px] text-gray-500 mb-1.5", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx("span", { role: "status", "aria-live": "polite", className: checkJob.status === "stopped" ? "text-red-700 font-semibold" : checkJob.status === "done" ? "text-emerald-700 font-semibold" : "", children: checkJob.message }),
@@ -10841,16 +10899,7 @@ function App({ suiteMode = false } = {}) {
                   }),
                   monitorSummary.checked === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(Hint, { text: "No links checked yet. Press Check Now to check every scanned product, or let Auto Re-Scan check them in the background; counts will appear above once checks run." })
                 ] }),
-                svcUsage && !svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 mb-4", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: svcUsage.connect_url, target: "_top", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "14px", fontWeight: 600, borderRadius: "8px", padding: "10px 20px", textDecoration: "none", cursor: "pointer", lineHeight: 1, whiteSpace: "nowrap", transition: ".12s", color: "#fff", background: "#2563eb", border: "1px solid #2563eb", boxShadow: "0 4px 10px -3px rgba(37,99,235,.5)" }, onMouseEnter: (e) => {
-                    e.currentTarget.style.background = "#1d4ed8";
-                    e.currentTarget.style.borderColor = "#1d4ed8";
-                  }, onMouseLeave: (e) => {
-                    e.currentTarget.style.background = "#2563eb";
-                    e.currentTarget.style.borderColor = "#2563eb";
-                  }, children: "Connect your DevDome account" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[13px] text-gray-500", children: "Live checks run on DevDome servers. Requires a DevDome account." })
-                ] }),
+                svcUsage && !svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(NeedsAccount, { what: "Live checks run on DevDome servers." }),
                 svcUsage && svcUsage.usage && /* @__PURE__ */ jsxRuntimeExports.jsx(SettingRow, { label: `${typeof svcUsage.usage.plan === "string" && svcUsage.usage.plan ? svcUsage.usage.plan.charAt(0).toUpperCase() + svcUsage.usage.plan.slice(1) : "Your"} Plan`, hint: "Link checks used this month on your DevDome account.", tooltip: "The free plan includes 500 checks and searches per month, paid plans raise the limit. When the limit is reached, link statuses stay unchanged until next month, nothing on your site breaks.", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-3 pt-2.5", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-sm font-bold text-gray-900", children: [
                     svcUsage.usage.used.toLocaleString(),

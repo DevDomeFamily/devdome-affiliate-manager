@@ -118,10 +118,12 @@ class DEVDAFFI_Rest {
 		// NOT wp_nonce_url(): that entity-encodes the ampersand (&amp;) for HTML context, and
 		// this URL travels through JSON into a React href — the browser would literally send
 		// "amp;_wpnonce" and WordPress answers "The link you followed has expired."
+		$page_url    = admin_url( 'admin.php?page=devdome-affiliate-manager' );
 		$connect_url = add_query_arg(
 			array(
 				'action'   => 'devdcorev1_connect_go',
 				'_wpnonce' => wp_create_nonce( 'devdcorev1_connect_go' ),
+				'return'   => rawurlencode( $page_url ), // the core reads it from the query string and comes back here
 			),
 			admin_url( 'admin-post.php' )
 		);

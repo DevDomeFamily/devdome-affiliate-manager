@@ -4,7 +4,7 @@ Tags: amazon affiliate, amazon associates, amazon affiliate plugin, amazon affil
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -227,6 +227,11 @@ Yes. Use `[devdaffi_button asin="YOUR_ASIN"]`, or `[devdaffi_button]` with a fix
 5. Click Protection: Bot Protection and the global Bots Blocked counter.
 
 == Changelog ==
+
+= 1.1.5 =
+* Shared DevDome library 1.7.9: the DevDome dashboard lists only real problems (a feature that is off, paused or not connected is no longer an issue) and no longer says Not monitored.
+
+* DevDome Account card: the same Connect card as in the other DevDome plugins, with what connecting sends stated before you press Connect. The Link Radar and store routing rows now point to it, and Check Now says that it needs the account.
 
 = 1.1.4 =
 

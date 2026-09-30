@@ -1643,6 +1643,9 @@ video {
 .p-4 {
   padding: 1rem;
 }
+.p-5 {
+  padding: 1.25rem;
+}
 .p-6 {
   padding: 1.5rem;
 }
@@ -1851,11 +1854,17 @@ video {
 .text-\[11px\] {
   font-size: 11px;
 }
+.text-\[12\.5px\] {
+  font-size: 12.5px;
+}
 .text-\[12px\] {
   font-size: 12px;
 }
 .text-\[13px\] {
   font-size: 13px;
+}
+.text-\[14\.5px\] {
+  font-size: 14.5px;
 }
 .text-\[14px\] {
   font-size: 14px;
@@ -2084,6 +2093,10 @@ video {
 .text-slate-700 {
   --tw-text-opacity: 1;
   color: rgb(51 65 85 / var(--tw-text-opacity, 1));
+}
+.text-slate-900 {
+  --tw-text-opacity: 1;
+  color: rgb(15 23 42 / var(--tw-text-opacity, 1));
 }
 .text-white {
   --tw-text-opacity: 1;
