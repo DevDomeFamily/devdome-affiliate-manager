@@ -6,7 +6,7 @@
 [![Tested WP](https://img.shields.io/wordpress/plugin/tested/devdome-affiliate-manager)](https://wordpress.org/plugins/devdome-affiliate-manager/)
 [![License GPL-2.0+](https://img.shields.io/badge/license-GPL--2.0%2B-blue.svg)](LICENSE)
 
-Amazon affiliates: auto-tag affiliate links, track Amazon clicks and add an Amazon buy button. Supports WooCommerce external product links. This free Amazon affiliate link manager helps you maintain an affiliate website, localize destinations and find unavailable products from one WordPress dashboard.
+Amazon Affiliate WordPress Plugin: tag Amazon affiliate links, check Amazon product links, replace dead ASINs, earn commission as an Amazon Associate. Add your Amazon Associates tracking IDs and manage supported links across 22 marketplaces, with keyword linking and click tracking by tag or keyword rule. Local tagging, buttons, scanning and click counting work without an account or API key; hosted status checks, replacement searches and geo routing require a connected DevDome account. These tools help maintain your affiliate links but do not guarantee earnings.
 
 The free alternative to AAWP, Lasso, AmaLinks Pro, ThirstyAffiliates Pro and Pretty Links Pro for Amazon Associates publishers, and an alternative to the free Amazon Auto Links plugin, which inserts product boxes through the PA-API rather than retagging links already in your posts.
 
@@ -40,7 +40,7 @@ The paid editions below charge from the first feature.
 | Click tracking | Yes | Yes | Yes | Yes | Yes | Yes |
 | Bot click protection | Yes | No | No | No | No | No |
 | Needs Amazon PA-API keys | No | Yes | Yes | Yes | No | No |
-| Works without any account | Yes, except link checks and geo routing | No | No | No | No | No |
+| Works without any account | Yes, except hosted status checks, replacement searches and geo routing | No | No | No | No | No |
 
 Prices are the vendors' single-site annual plans as published in September 2026.
 
@@ -69,7 +69,7 @@ Use keyword rules to monetize blog posts through Amazon Associates affiliate mar
 
 - Exact or flexible matching.
 - Per-keyword, per-page link limits.
-- Skip existing links, headings, code and blockquotes.
+- Always skip existing links; optionally skip headings, code, blockquotes and the first paragraph.
 
 These tools support publishers who want to make money blogging; they do not guarantee earnings.
 
@@ -77,7 +77,7 @@ These tools support publishers who want to make money blogging; they do not guar
 
 Link Radar scans content and WooCommerce external products for Amazon links. Run checks manually or enable scheduled monitoring, which is off by default.
 
-- Classify destinations as live, out of stock or 404 / unavailable.
+- Classify destinations as live, out of stock, dead or unknown, with unclassified checks shown under No Answer.
 - Optionally route affected clicks to a replacement product or Amazon search.
 - Keep the original destination when that is your preferred recovery setting.
 - Use bulk Replace ASIN to update broken products from the dashboard.
@@ -115,7 +115,7 @@ Abilities use the same administrator permissions as the plugin screen. Destructi
 *Keyword auto-linker: keywords become tagged Amazon links with per-keyword limits.*
 
 [![Link Radar scanner found 13 Amazon affiliate links across 3 pages with scheduled re-scans](screenshots/devdome-amazon-affiliate-link-scanner.png)](https://devdome.com)
-*Link Radar: every Amazon link on the site found automatically, re-scanned on a schedule.*
+*Link Radar: scan published content and WooCommerce product URLs for full Amazon product URLs containing an ASIN; shortlinks and generated shortcode buttons are excluded, and scheduled rescanning is off by default.*
 
 [![Amazon out-of-stock and 404 product monitor with live, out of stock and dead ASIN counts and redirect options](screenshots/devdome-amazon-affiliate-out-of-stock-404-monitor.png)](https://wordpress.org/plugins/devdome-affiliate-manager/)
 *Stock and 404 monitor: live, out-of-stock and dead ASINs, with optional redirects.*
