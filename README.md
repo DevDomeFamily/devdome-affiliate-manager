@@ -1,4 +1,4 @@
-# DevDome Affiliate Manager: Amazon Affiliate Links & Amazon Associates
+# DevDome Affiliate Manager: Amazon Affiliate Plugin for Amazon Associates
 
 [![WordPress Plugin Version](https://img.shields.io/wordpress/plugin/v/devdome-affiliate-manager?label=wp.org)](https://wordpress.org/plugins/devdome-affiliate-manager/)
 [![Active Installs](https://img.shields.io/wordpress/plugin/installs/devdome-affiliate-manager)](https://wordpress.org/plugins/devdome-affiliate-manager/)

@@ -4,11 +4,11 @@ Tags: amazon affiliate, amazon associates, amazon affiliate plugin, amazon affil
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.5
+Stable tag: 1.1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-WordPress Amazon Affiliate Plugin: tag Amazon affiliate links, check Amazon product links, replace dead links, earn commission as an Amazon Associate.
+Amazon Affiliate WordPress Plugin: tag Amazon affiliate links, check Amazon product links, replace dead ASINs, earn commission as an Amazon Associate.
 
 == Description ==
 
@@ -227,6 +227,11 @@ Yes. Use `[devdaffi_button asin="YOUR_ASIN"]`, or `[devdaffi_button]` with a fix
 5. Click Protection: Bot Protection and the global Bots Blocked counter.
 
 == Changelog ==
+
+= 1.1.6 =
+
+* Shared DevDome library 1.7.10: the DevDome dashboard icons are printed through the WordPress escaping functions (WordPress.org review rule).
+* Short description rewritten.
 
 = 1.1.5 =
 * Shared DevDome library 1.7.9: the DevDome dashboard lists only real problems (a feature that is off, paused or not connected is no longer an issue) and no longer says Not monitored.
