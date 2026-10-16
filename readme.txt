@@ -4,7 +4,7 @@ Tags: amazon affiliate, amazon associates, amazon affiliate plugin, amazon affil
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.6
+Stable tag: 1.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -163,6 +163,8 @@ The plugin's generated service payloads do not include passwords, password hashe
 
 The scanner runs locally. It does not upload posts, pages or comments. Status checks send extracted ASINs and domains. The content-derived exception is the replacement keyword described above, which contains up to six words from a title or product metadata.
 
+**Error reports (`devdome.com`), only when you press "Report this error" on an error message.** The plugin sends the error text, the plugin, bundled library, WordPress and PHP versions, whether the site is a multisite, the site locale, the screen you were on, your site address, the generated site ID, your DevDome account ID if the site is connected, and your admin e-mail (so support can reply) to `https://devdome.com/api/plugin/error-report`. No affiliate tags, links, click counts or visitor data are included. Nothing is sent unless you press the button.
+
 == Installation ==
 
 1. Upload the plugin ZIP through the WordPress plugin uploader, or copy its folder to `wp-content/plugins/`.
@@ -227,6 +229,16 @@ Yes. Use `[devdaffi_button asin="YOUR_ASIN"]`, or `[devdaffi_button]` with a fix
 5. Click Protection: Bot Protection and the global Bots Blocked counter.
 
 == Changelog ==
+
+= 1.1.7 =
+
+* A dismissible note at the top of the settings page mentions the free DevDome Analytics plugin, with a button that opens the plugin installer (or the Analytics screen when it is already active). Dismiss hides it for good.
+* Shared DevDome library 1.7.13: uninstalling the last DevDome plugin also removes the note's dismissal, the update-repair records and the per-user "Report a bug" flag; the visitor-beacon flood guard keeps one short-lived record per address and clears its expired ones itself, and behind Cloudflare it counts per visitor instead of per Cloudflare address.
+* Shared DevDome library 1.7.12: a Cloudflare visitor address header is trusted only when the connection itself comes from a Cloudflare address, so a forged header from anywhere else is ignored.
+* Shared DevDome library 1.7.11: on a subdirectory multisite, a site mapped to its own domain is its own site and no longer shares the network's connection.
+* External services lists the "Report this error" button and what it sends.
+* Click counting keeps its short-lived unique-visitor markers from piling up: expired markers are now removed by the plugin itself instead of waiting for the daily WordPress cleanup.
+* Deleting the plugin also removes the cached update-check answer it kept in the database.
 
 = 1.1.6 =
 
@@ -344,6 +356,9 @@ Link Radar: the Check Now button is back in the Stock & 404 Monitor section (it 
 * Geo-localization, click protection, mobile app opener, link monitor.
 
 == Upgrade Notice ==
+
+= 1.1.7 =
+Smaller database footprint for click counting. Links, clicks and the screen are unchanged.
 
 = 1.0.0 =
 This WordPress.org build uses the `devdaffi_` identifiers and `[devdaffi_button]` shortcode. Legacy self-hosted migration files are excluded from the package.

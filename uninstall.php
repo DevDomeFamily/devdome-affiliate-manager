@@ -53,6 +53,13 @@ function devdaffi_uninstall_site() {
 // Shared-core cleanup runs per blog too: $wpdb->options follows switch_to_blog(), and the shared identity rows
 // live in every site's options table (round 1, same as Analytics).
 require_once __DIR__ . '/lib/devdome-core/uninstall.php';
+// The suite updater caches its update manifest under a hashed key, per site and (on multisite) network wide.
+// Clear both spellings, or the cache outlives the plugin.
+$devdaffi_updater_cache = 'devdome_upd_' . md5('devdome-affiliate-manager');
+delete_transient($devdaffi_updater_cache);
+if (is_multisite()) {
+    delete_site_transient($devdaffi_updater_cache);
+}
 if ( is_multisite() ) {
 	$devdaffi_site_ids = get_sites( array( 'fields' => 'ids', 'number' => 0 ) );
 	foreach ( $devdaffi_site_ids as $devdaffi_site_id ) {

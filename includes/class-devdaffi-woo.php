@@ -36,7 +36,7 @@ class DEVDAFFI_Woo {
 
 	/**
 	 * Rewrite an external/affiliate buy URL that embeds an Amazon ASIN (…/dp/, …/gp/product/ or a
-	 * redirect like …/i/ASIN/). CUSTOM link mode → return your custom URL (e.g. raifords/p/{ASIN}) so
+	 * redirect like …/i/ASIN/). CUSTOM link mode → return your custom URL (e.g. example.com/p/{ASIN}) so
 	 * every button matches the one you set. Otherwise → the /go resolver (affiliate tag + geo + app
 	 * opener). Non-ASIN URLs (a simple product's ?add-to-cart= link) don't match and pass through.
 	 */

@@ -134,6 +134,9 @@ class DEVDAFFI_Admin {
 		wp_enqueue_script( 'devdaffi-admin-boot' );
 		wp_add_inline_script( 'devdaffi-admin-boot', $boot );
 
+		if ( function_exists( 'devdcorev1_analytics_card' ) ) {
+			devdcorev1_analytics_card(); // the suite's Analytics note sits above the app frame, in the page itself
+		}
 		echo '<iframe id="devdaffi-frame" class="devdaffi-frame" title="DevDome Affiliate Manager"></iframe>';
 	}
 }

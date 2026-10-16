@@ -85,9 +85,32 @@ class DEVDAFFI_Clicks {
 		$key = 'devdaffi_uv_' . md5( $tag . '|' . $sid );
 		if ( false === get_transient( $key ) ) {
 			set_transient( $key, 1, 30 * MINUTE_IN_SECONDS );
+			if ( ! wp_using_ext_object_cache() && 1 === wp_rand( 1, 50 ) ) {
+				self::sweep_expired_visitor_marks();
+			}
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Every unique visitor of a tag leaves a 30-minute marker (two wp_options rows without an object cache) that
+	 * WordPress only removes in its daily sweep, so a busy day stacked thousands of dead rows (audit 2026-10-16).
+	 * About one new visitor in fifty removes this plugin's expired markers, the value row and its timeout row,
+	 * nothing else, the way core's delete_expired_transients() works.
+	 */
+	private static function sweep_expired_visitor_marks() {
+		global $wpdb;
+		$like = $wpdb->esc_like( '_transient_timeout_devdaffi_uv_' ) . '%';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- scoped sweep of this plugin's own expired transients.
+		$wpdb->query( $wpdb->prepare(
+			"DELETE a, b FROM {$wpdb->options} a, {$wpdb->options} b
+			 WHERE a.option_name LIKE %s
+			   AND b.option_name = CONCAT('_transient_', SUBSTRING(a.option_name, 20))
+			   AND a.option_value < %d",
+			$like,
+			time()
+		) );
 	}
 
 	/** Drop click rows whose tag is no longer used by any configured tag. @return bool false when the delete failed (round 1). */
