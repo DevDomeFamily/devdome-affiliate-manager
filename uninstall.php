@@ -8,6 +8,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Uninstall cleanup of the plugin's own custom tables; names are constant.
 
 function devdaffi_uninstall_site() {
+	delete_transient('devdaffi_activation_redirect'); // the first-activation redirect flag (60 s), gone anyway
 	global $wpdb;
 
 	delete_option( 'devdaffi_settings' );
@@ -19,7 +20,7 @@ function devdaffi_uninstall_site() {
 	delete_option( 'devdaffi_hub_summary' );
 	delete_option( 'devdaffi_migrated_ids' );
 	delete_option( 'devdaffi_core_ids_migrated' );
-	delete_option( 'devdaffi_svc_state' );
+	delete_option( 'devdaffi_svc_state', 'devdaffi_svc_refused' );
 	delete_option( 'devdaffi_usage' );
 	delete_option( 'devdaffi_replace_journal' );
 	delete_option( 'devdaffi_replace_lock' );

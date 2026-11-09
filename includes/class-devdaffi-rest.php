@@ -130,10 +130,16 @@ class DEVDAFFI_Rest {
 		if ( ! $connected && ! get_option( 'devdcorev1_connect_started', 0 ) ) {
 			return array( 'connected' => false, 'connect_url' => $connect_url, 'usage' => null, 'state' => 'connect' );
 		}
-		$resp = wp_remote_get( DEVDAFFI_Monitor::API . '/usage?' . http_build_query( array(
-			'site'       => (string) get_option( 'devdcorev1_site_id', '' ),
-			'site_token' => (string) get_option( 'devdcorev1_site_token', '' ),
-		) ), array( 'timeout' => 10 ) );
+		// Security review 2026-10-19 (#9): the site token travels in a POST body, never in a query string that
+		// CDN, proxy and server access logs keep.
+		$resp = wp_remote_post( DEVDAFFI_Monitor::API . '/usage', array(
+			'timeout' => 10,
+			'headers' => array( 'Content-Type' => 'application/json' ),
+			'body'    => wp_json_encode( array(
+				'site'       => (string) get_option( 'devdcorev1_site_id', '' ),
+				'site_token' => (string) get_option( 'devdcorev1_site_token', '' ),
+			) ),
+		) );
 		$code = is_wp_error( $resp ) ? 0 : (int) wp_remote_retrieve_response_code( $resp );
 		$data = is_wp_error( $resp ) ? array() : (array) json_decode( wp_remote_retrieve_body( $resp ), true );
 		return array(

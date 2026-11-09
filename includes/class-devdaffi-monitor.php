@@ -138,6 +138,14 @@ class DEVDAFFI_Monitor {
 	 */
 	private static function check_via_server( $items ) {
 		$out  = array();
+		// 21 Oct 2026: a site whose token the service refused (401) kept asking every hour for ever (test1 / test3
+		// produced 80-100 refused calls a day). After a 401 the batch is skipped until the stored token changes
+		// (a reconnect) or a day has passed, so a disconnected site re-tests once a day, not hourly.
+		$token_now = sha1( (string) get_option( 'devdcorev1_site_token', '' ) );
+		$refused   = get_option( 'devdaffi_svc_refused', array() );
+		if ( is_array( $refused ) && isset( $refused['token'], $refused['at'] ) && $refused['token'] === $token_now && ( time() - (int) $refused['at'] ) < DAY_IN_SECONDS ) {
+			return null;
+		}
 		$resp = wp_remote_post( self::API . '/check-batch', array(
 			'timeout' => 240, // the service queues behind the ScrapingDog slot limit under load; a batch of 20 took up to ~80 s at 50 sites (2026-09-28)
 			'headers' => array( 'Content-Type' => 'application/json' ),
@@ -157,7 +165,11 @@ class DEVDAFFI_Monitor {
 		$body = json_decode( wp_remote_retrieve_body( $resp ), true );
 		if ( 401 === $code ) {
 			update_option( 'devdaffi_svc_state', 'connect', false ); // UI: "Connect your DevDome account"
+			update_option( 'devdaffi_svc_refused', array( 'token' => $token_now, 'at' => time() ), false );
 			return null;
+		}
+		if ( is_array( $refused ) && ! empty( $refused ) ) {
+			delete_option( 'devdaffi_svc_refused' ); // the service answered something other than 401: the token works again
 		}
 		if ( 429 === $code ) {
 			update_option( 'devdaffi_svc_state', 'quota', false ); // UI: monthly limit reached
@@ -759,14 +771,19 @@ class DEVDAFFI_Monitor {
 		if ( is_string( $cached ) ) {
 			return $cached;
 		}
-		$resp = wp_remote_get(
-			self::API . '/search?' . http_build_query( array(
-				'keyword'    => $keyword,
-				'domain'     => $domain,
-				'site'       => (string) get_option( 'devdcorev1_site_id', '' ),
-				'site_token' => (string) get_option( 'devdcorev1_site_token', '' ),
-			) ),
-			array( 'timeout' => 8 )
+		// Security review 2026-10-19 (#9): POST body, so the site token never lands in an access log.
+		$resp = wp_remote_post(
+			self::API . '/search',
+			array(
+				'timeout' => 8,
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body'    => wp_json_encode( array(
+					'keyword'    => $keyword,
+					'domain'     => $domain,
+					'site'       => (string) get_option( 'devdcorev1_site_id', '' ),
+					'site_token' => (string) get_option( 'devdcorev1_site_token', '' ),
+				) ),
+			)
 		);
 		if ( is_wp_error( $resp ) ) {
 			return '';

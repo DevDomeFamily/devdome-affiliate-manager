@@ -4,7 +4,7 @@ Tags: amazon affiliate, amazon associates, amazon affiliate plugin, amazon affil
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1.7
+Stable tag: 1.1.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -147,10 +147,6 @@ Requests contain the destination URL and a generic plugin user agent, not the vi
 
 This service is provided by Amazon.com, Inc.: [Conditions of Use](https://www.amazon.com/gp/help/customer/display.html?nodeId=GLSBYFE9MGKKQXXM), [Privacy Notice](https://www.amazon.com/gp/help/customer/display.html?nodeId=GX7NJQ4ZB8MHFRNJ).
 
-= No error reports =
-
-This plugin sends no error reports. The "Report a bug" link on its screen opens the bug form on devdome.com in your browser; the plugin itself sends nothing.
-
 = Not contacted on this WordPress.org build =
 
 This build does not fetch `https://api.devdome.com/bot-protection/list`, `/bot-protection/asns` or `/bot-protection/drop`, and does not schedule feed downloads. Local matching can still use shared data already cached on the site.
@@ -163,7 +159,7 @@ The plugin's generated service payloads do not include passwords, password hashe
 
 The scanner runs locally. It does not upload posts, pages or comments. Status checks send extracted ASINs and domains. The content-derived exception is the replacement keyword described above, which contains up to six words from a title or product metadata.
 
-**Error reports (`devdome.com`), only when you press "Report this error" on an error message.** The plugin sends the error text, the plugin, bundled library, WordPress and PHP versions, whether the site is a multisite, the site locale, the screen you were on, your site address, the generated site ID, your DevDome account ID if the site is connected, and your admin e-mail (so support can reply) to `https://devdome.com/api/plugin/error-report`. No affiliate tags, links, click counts or visitor data are included. Nothing is sent unless you press the button.
+**Error reports (`devdome.com`), only when you press "Report this error" on an error message.** The plugin sends the error text, the plugin, bundled library, WordPress and PHP versions, whether the site is a multisite, the site locale, the screen you were on, your site address, the generated site ID, your DevDome account ID if the site is connected, and your admin e-mail (so support can reply) to `https://devdome.com/api/plugin/error-report`. No affiliate tags, links, click counts or visitor data are included. Nothing is sent unless you press the button. DevDome: [Terms of Service](https://devdome.com/terms-of-service), [Privacy Policy](https://devdome.com/privacy-policy).
 
 == Installation ==
 
@@ -229,6 +225,14 @@ Yes. Use `[devdaffi_button asin="YOUR_ASIN"]`, or `[devdaffi_button]` with a fix
 5. Click Protection: Bot Protection and the global Bots Blocked counter.
 
 == Changelog ==
+
+= 1.1.8 =
+
+* Shared DevDome library 1.7.17: the connect beacon's flood guard counts an IPv6 visitor per /64 network, and the one-click install of another DevDome plugin verifies the downloaded package against the published checksum before installing.
+* Hardening (security review): shortlink resolution only follows plain http(s) on the standard ports and refuses private addresses; the site token is sent in request bodies, never in a URL; after the monitoring service refuses a site (not connected) the hourly check waits for a reconnect or a day instead of asking every hour.
+* The first activation opens the plugin screen once: the DevDome Account card when the site is not connected yet, the Overview when it is. Bulk activations never redirect.
+* The /go endpoint resolves shortlinks only; a direct storefront URL no longer creates a row or a request. The request limiter counts an IPv6 visitor per /64 block.
+* Shared DevDome library 1.7.16: the connect request to devdome.com stays valid for 60 minutes instead of 20, and the DevDome Tools page asks the server again while a request this site started is still open, so a connection authorized in a tab that never came back still completes; the Tools page notes when DevDome Analytics is not installed; the Analytics note styles are registered through WordPress instead of a style block in the page; one shared helper reads the visitor address behind a trusted proxy; the AI Assistant is listed in the plugin catalog. After connecting, the screen you land on says which account the site is connected to and the one next step.
 
 = 1.1.7 =
 
@@ -356,6 +360,9 @@ Link Radar: the Check Now button is back in the Stock & 404 Monitor section (it 
 * Geo-localization, click protection, mobile app opener, link monitor.
 
 == Upgrade Notice ==
+
+= 1.1.8 =
+Shortlink endpoint hardening and shared DevDome library 1.7.16. Links and tags are unaffected.
 
 = 1.1.7 =
 Smaller database footprint for click counting. Links, clicks and the screen are unchanged.

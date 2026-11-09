@@ -62,13 +62,19 @@ class DEVDAFFI_Go {
 		$this->resolve_ok = $hits <= 200; // beyond it no outbound resolution: a shortlink dies, a direct storefront URL still goes
 		$this->maybe_block_bot( $cp );
 
-		// Expand shortlinks (cached 12h).
-		$cache_key = 'devdaffi_resolve_' . md5( $u );
-		$final     = get_transient( $cache_key );
-		if ( false === $final ) {
-			$final = $this->resolve_ok ? $this->follow_redirects( $u, 7 ) : ( '' !== DEVDAFFI_Rewriter::storefront_domain( $host ) ? $u : '' ); // round 5: no outbound requests for a hammering address
-			if ( '' !== $final ) {
-				set_transient( $cache_key, $final, 12 * HOUR_IN_SECONDS );
+		// Expand shortlinks (cached 12h). Security review 2026-10-19 #7: a direct storefront URL needs no
+		// lookup and no cache row (every unique URL used to cost a 12 h transient and up to 7 outbound
+		// requests); only a shortlink (amzn.to, a.co) is resolved, and only that is cached.
+		if ( '' !== DEVDAFFI_Rewriter::storefront_domain( $host ) ) {
+			$final = $u;
+		} else {
+			$cache_key = 'devdaffi_resolve_' . md5( $u );
+			$final     = get_transient( $cache_key );
+			if ( false === $final ) {
+				$final = $this->resolve_ok ? $this->follow_redirects( $u, 7 ) : ''; // round 5: no outbound requests for a hammering address
+				if ( '' !== $final ) {
+					set_transient( $cache_key, $final, 12 * HOUR_IN_SECONDS );
+				}
 			}
 		}
 		if ( '' === $final ) {
@@ -165,6 +171,14 @@ class DEVDAFFI_Go {
 		$ip = self::limiter_ip(); // the transport peer, or the Cloudflare header only when the peer IS Cloudflare (round 4)
 		if ( '' === $ip ) {
 			return 1;
+		}
+		// Security review 2026-10-19 #7: an IPv6 visitor is counted by its /64 (one household or server gets
+		// a whole /64, so rotating the low bits must not mint a fresh limit each time).
+		if ( false !== strpos( $ip, ':' ) ) {
+			$bin = @inet_pton( $ip );
+			if ( false !== $bin && 16 === strlen( $bin ) ) {
+				$ip = inet_ntop( substr( $bin, 0, 8 ) . str_repeat( "\0", 8 ) ) . '/64';
+			}
 		}
 		$key = 'devdaffi_cl_' . md5( $ip );
 		if ( false === get_transient( $key ) ) {
@@ -434,16 +448,28 @@ class DEVDAFFI_Go {
 		$settled = function ( $u ) {
 			return '' !== DEVDAFFI_Rewriter::storefront_domain( strtolower( (string) wp_parse_url( $u, PHP_URL_HOST ) ) ) ? $u : '';
 		};
+		// Security review 2026-10-19 (#8): the input and every hop must be plain http(s) on the default port; the
+		// requests go through wp_safe_remote_* so a name that resolves to a private or loopback address is refused.
+		$port_ok = function ( $u ) {
+			$p = wp_parse_url( $u );
+			if ( ! is_array( $p ) || empty( $p['scheme'] ) || ! in_array( strtolower( $p['scheme'] ), array( 'http', 'https' ), true ) ) {
+				return false;
+			}
+			return ! isset( $p['port'] ) || in_array( (int) $p['port'], array( 80, 443 ), true );
+		};
+		if ( ! $port_ok( $current ) ) {
+			return '';
+		}
 		for ( $i = 0; $i < $max; $i++ ) {
 			$args = array(
 				'timeout'     => 6,
 				'redirection' => 0,
 				'headers'     => array( 'User-Agent' => 'Mozilla/5.0 (compatible; DevDomeAff/1.0)' ),
 			);
-			$resp = wp_remote_head( $current, $args );
+			$resp = wp_safe_remote_head( $current, $args );
 			$head_code = is_wp_error( $resp ) ? 0 : (int) wp_remote_retrieve_response_code( $resp );
 			if ( $head_code < 200 || 405 === $head_code || 501 === $head_code ) { // no answer, or HEAD refused (405 / 501): ask again with GET
-				$resp = wp_remote_get( $current, $args );
+				$resp = wp_safe_remote_get( $current, $args );
 			}
 			if ( is_wp_error( $resp ) ) {
 				return $settled( $current );
@@ -452,7 +478,7 @@ class DEVDAFFI_Go {
 			$loc  = wp_remote_retrieve_header( $resp, 'location' );
 			if ( $code >= 300 && $code < 400 && $loc ) {
 				$next = $this->abs_url( $current, $loc );
-				if ( ! $next ) {
+				if ( ! $next || ! $port_ok( $next ) ) {
 					return $settled( $current );
 				}
 				// SSRF guard: only follow redirects that stay within Amazon. A shortlink

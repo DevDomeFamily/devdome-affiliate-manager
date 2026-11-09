@@ -2,7 +2,7 @@
 /**
  * Plugin Name: DevDome Affiliate Manager
  * Description: Amazon affiliate link management: auto-tagging, geo-localization, dead-link recovery, link-health monitoring, keyword auto-linking, click protection, and WooCommerce support.
- * Version: 1.1.7
+ * Version: 1.1.8
  * Author: DevDome
  * Author URI: https://devdome.com
  * Text Domain: devdome-affiliate-manager
@@ -20,7 +20,7 @@ if ( file_exists( __DIR__ . '/wporg-build.php' ) ) {
 	require __DIR__ . '/wporg-build.php';
 }
 
-define('DEVDAFFI_VERSION', '1.1.7' );
+define('DEVDAFFI_VERSION', '1.1.8' );
 define( 'DEVDAFFI_FILE', __FILE__ );
 define( 'DEVDAFFI_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEVDAFFI_URL', plugin_dir_url( __FILE__ ) );
@@ -164,7 +164,25 @@ add_action( 'admin_init', function () {
 } );
 
 // Rewrite rule for /go must exist before flush on activation.
-register_activation_hook( __FILE__, function () {
+// First activation (the activation hook sets the transient): open this plugin's screen once. Bulk activation, AJAX,
+// cron and WP-CLI never redirect.
+add_action( 'admin_init', function () {
+	if ( ! get_transient( 'devdaffi_activation_redirect' ) ) {
+		return;
+	}
+	delete_transient( 'devdaffi_activation_redirect' );
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: a bulk activation never redirects.
+	if ( isset( $_GET['activate-multi'] ) || wp_doing_ajax() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) || ! current_user_can( 'activate_plugins' ) ) {
+		return;
+	}
+	wp_safe_redirect( admin_url( 'admin.php?page=devdome-affiliate-manager' ) );
+	exit;
+} );
+register_activation_hook( __FILE__, function ( $network_wide = false ) {
+	// First activation only: the next admin page load opens this plugin's screen (never network-wide, never WP-CLI).
+	if (empty($network_wide) && !(defined('WP_CLI') && WP_CLI)) {
+		set_transient('devdaffi_activation_redirect', 1, 60);
+	}
 	add_option( DEVDAFFI_OPTION, DEVDAFFI_Settings::defaults(), '', 'no' ); // create non-autoloaded
 	DEVDAFFI_Go::add_rewrite_rule();
 	flush_rewrite_rules();
